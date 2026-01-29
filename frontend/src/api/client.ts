@@ -185,7 +185,7 @@ export const api = {
     delete: (id: string) =>
       request<void>(`${BASE}/api/checkouts/${id}`, { method: "DELETE" }),
     check: (id: string) =>
-      request<{ ok: boolean; error?: string; status?: number }>(
+      request<{ ok: boolean; error?: string; status?: number; inactiveReason?: string }>(
         `${BASE}/api/checkouts/${id}/check`,
         { method: "POST" }
       ),

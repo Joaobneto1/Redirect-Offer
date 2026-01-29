@@ -29,45 +29,55 @@ function omitUser(u: { id: string; email: string; name: string | null; createdAt
 }
 
 router.post("/register", async (req: Request, res: Response) => {
-  const parsed = registerSchema.safeParse(req.body);
-  if (!parsed.success) {
-    const msg = parsed.error.errors.map((e) => e.message).join("; ");
-    return res.status(400).json({ error: msg });
+  try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join("; ");
+      return res.status(400).json({ error: msg });
+    }
+    const { email, password, name } = parsed.data;
+
+    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (existing) return res.status(409).json({ error: "E-mail já cadastrado" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email: email.toLowerCase(),
+        passwordHash,
+        name: name?.trim() || null,
+      },
+    });
+
+    const token = signToken({ sub: user.id, email: user.email }, config.JWT_SECRET);
+    return res.status(201).json({ user: omitUser(user), token });
+  } catch (err) {
+    console.error("[POST /api/auth/register]", err);
+    return res.status(500).json({ error: "Erro ao cadastrar. Tente novamente." });
   }
-  const { email, password, name } = parsed.data;
-
-  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  if (existing) return res.status(409).json({ error: "E-mail já cadastrado" });
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email: email.toLowerCase(),
-      passwordHash,
-      name: name?.trim() || null,
-    },
-  });
-
-  const token = signToken({ sub: user.id, email: user.email }, config.JWT_SECRET);
-  return res.status(201).json({ user: omitUser(user), token });
 });
 
 router.post("/login", async (req: Request, res: Response) => {
-  const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    const msg = parsed.error.errors.map((e) => e.message).join("; ");
-    return res.status(400).json({ error: msg });
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join("; ");
+      return res.status(400).json({ error: msg });
+    }
+    const { email, password } = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user) return res.status(401).json({ error: "E-mail ou senha inválidos" });
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "E-mail ou senha inválidos" });
+
+    const token = signToken({ sub: user.id, email: user.email }, config.JWT_SECRET);
+    return res.json({ user: omitUser(user), token });
+  } catch (err) {
+    console.error("[POST /api/auth/login]", err);
+    return res.status(500).json({ error: "Erro ao entrar. Tente novamente." });
   }
-  const { email, password } = parsed.data;
-
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  if (!user) return res.status(401).json({ error: "E-mail ou senha inválidos" });
-
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: "E-mail ou senha inválidos" });
-
-  const token = signToken({ sub: user.id, email: user.email }, config.JWT_SECRET);
-  return res.json({ user: omitUser(user), token });
 });
 
 router.get("/me", (req: Request, res: Response) => {

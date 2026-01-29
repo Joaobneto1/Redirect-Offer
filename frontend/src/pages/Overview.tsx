@@ -59,6 +59,42 @@ export function Overview() {
         desc="Resumo do sistema de links inteligentes e checkouts."
       />
 
+      <motion.section
+        variants={item}
+        initial="hidden"
+        animate="show"
+        className="steps-guide"
+        style={{ marginBottom: "var(--space-8)" }}
+      >
+        <h3>Passo a passo</h3>
+        <ol className="steps-list">
+          <li>
+            <span className="step-num">1</span>
+            <span className="step-text">
+              <strong>Produto (oferta)</strong> — Crie um produto em Produtos. Ex.: &quot;Oferta X&quot;.
+            </span>
+          </li>
+          <li>
+            <span className="step-num">2</span>
+            <span className="step-text">
+              <strong>Grupo</strong> — Dentro do produto, crie um grupo (ex.: Checkout Principal). Defina rotação: round-robin ou prioridade.
+            </span>
+          </li>
+          <li>
+            <span className="step-num">3</span>
+            <span className="step-text">
+              <strong>Checkouts</strong> — No grupo, adicione várias URLs de checkout (Hotmart, Eduzz, etc.). Use <strong>Verificar</strong> para testar se estão ativas; o sistema detecta oferta inativa por URL/HTML.
+            </span>
+          </li>
+          <li>
+            <span className="step-num">4</span>
+            <span className="step-text">
+              <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tenta checkout 1, depois 2, 3… até um responder. Se todos falharem, mostra &quot;Nenhuma oferta disponível&quot;.
+            </span>
+          </li>
+        </ol>
+      </motion.section>
+
       {loading ? (
         <motion.p
           initial={{ opacity: 0 }}
@@ -79,9 +115,10 @@ export function Overview() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: "var(--space-5)",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: "var(--space-4)",
               }}
+              className="overview-cards"
             >
               {cards.map((c) => {
                 const CardInner = (

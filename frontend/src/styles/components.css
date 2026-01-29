@@ -18,6 +18,19 @@
   margin: 0;
 }
 
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.4rem;
+  }
+  .page-desc {
+    font-size: 0.9rem;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+}
+
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -55,6 +68,7 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
+  min-height: 44px;
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.9rem;
@@ -62,6 +76,12 @@
   border: none;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+}
+@media (max-width: 768px) {
+  .btn {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
 }
 .btn:disabled {
   opacity: 0.5;
@@ -177,9 +197,11 @@
 
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
 }
 .table th,
@@ -205,6 +227,22 @@
   border-bottom: none;
 }
 
+@media (max-width: 768px) {
+  .table th,
+  .table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.9rem;
+  }
+  .card-header {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4);
+  }
+  .card-body {
+    padding: var(--space-4);
+  }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -214,7 +252,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: var(--space-4);
+    align-items: flex-start;
+    padding-top: var(--space-8);
+  }
 }
 
 .modal {
@@ -226,6 +272,17 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+@media (max-width: 768px) {
+  .modal {
+    max-height: 85vh;
+  }
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
 }
 
 .modal-header {
@@ -309,8 +366,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-4);
   background: var(--bg-base);
+}
+@media (max-width: 768px) {
+  .auth-page {
+    padding: var(--space-4);
+    align-items: flex-start;
+    padding-top: var(--space-10);
+  }
 }
 
 .auth-card {
@@ -319,8 +383,13 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: var(--space-8);
+  padding: var(--space-6);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 768px) {
+  .auth-card {
+    padding: var(--space-6);
+  }
 }
 
 .auth-title {

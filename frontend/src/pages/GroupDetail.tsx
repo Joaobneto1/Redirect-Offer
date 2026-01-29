@@ -323,7 +323,7 @@ export function GroupDetail() {
               ) : (
                 <>
                   <p className="page-desc" style={{ margin: "0 0 var(--space-4)" }}>
-                    Clique em <strong>Verificar</strong> para testar se a URL está respondendo. Falhas (timeout, HTTP ≠ 200/302) aparecem em <strong>Erro</strong>; após várias falhas o checkout pode ficar <strong>Inativo</strong>.
+                    Clique em <strong>Verificar</strong> para testar se a URL está ativa. O sistema analisa URL final e HTML (Hotmart, Eduzz, etc.) e detecta oferta inativa. Falhas aparecem em <strong>Erro</strong>; após várias falhas o checkout pode ficar <strong>Inativo</strong>.
                   </p>
                   <div className="table-wrap">
                   <table className="table">

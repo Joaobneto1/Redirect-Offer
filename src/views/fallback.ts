@@ -7,8 +7,8 @@ export interface FallbackPageOptions {
  * Página HTML exibida quando todos os checkouts falham e não há fallback configurado.
  */
 export function renderFallbackPage(opts: FallbackPageOptions = {}): string {
-  const message = opts.message ?? "Todos os checkouts estão temporariamente indisponíveis.";
-  const title = opts.title ?? "Checkout indisponível";
+  const message = opts.message ?? "Nenhuma oferta disponível no momento. Quando todos os checkouts estão fora do ar, não redirecionamos para lugar nenhum.";
+  const title = opts.title ?? "Nenhuma oferta disponível";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -55,7 +55,7 @@ export function renderFallbackPage(opts: FallbackPageOptions = {}): string {
   <div class="card">
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(message)}</p>
-    <p class="retry"><a href="javascript:location.reload()">Tentar novamente</a></p>
+    <p class="retry"><a href="javascript:location.reload()">Tentar novamente</a> — ou feche a página.</p>
   </div>
 </body>
 </html>`;

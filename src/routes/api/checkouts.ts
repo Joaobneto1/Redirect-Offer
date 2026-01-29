@@ -53,6 +53,7 @@ router.post("/:id/check", async (req: Request, res: Response) => {
   const result = await checkCheckoutHealth(checkout.url, {
     timeoutMs: config.HEALTH_CHECK_TIMEOUT_MS,
     allowedStatuses: config.HEALTH_CHECK_ALLOWED_STATUSES,
+    deep: true, // Valida URL final + HTML (Hotmart, Eduzz, oferta inativa)
   });
 
   if (result.ok) {
@@ -67,7 +68,7 @@ router.post("/:id/check", async (req: Request, res: Response) => {
     return res.json({ ok: true, status: result.status });
   }
 
-  const errorMsg = result.error ?? `HTTP ${result.status ?? "?"}`;
+  const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "?"}`;
   const updated = await prisma.checkout.update({
     where: { id: checkout.id },
     data: {
@@ -85,7 +86,12 @@ router.post("/:id/check", async (req: Request, res: Response) => {
     });
   }
 
-  return res.json({ ok: false, error: errorMsg, status: result.status });
+  return res.json({
+    ok: false,
+    error: errorMsg,
+    status: result.status,
+    inactiveReason: result.inactiveReason ?? undefined,
+  });
 });
 
 router.post("/", async (req: Request, res: Response) => {

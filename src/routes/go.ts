@@ -26,6 +26,7 @@ export async function handleGo(req: Request, res: Response): Promise<void> {
       res.redirect(302, outcome.url);
       return;
     case "error":
+      // Todos os checkouts falharam ou não há nenhum: não redireciona; mostra página "nenhuma oferta".
       res.status(503).send(renderFallbackPage({ message: outcome.message }));
       return;
   }

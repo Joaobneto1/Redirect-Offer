@@ -103,9 +103,6 @@ export async function resolveSmartLink(
   );
 
   if (ordered.length === 0) {
-    if (smartLink.fallbackUrl) {
-      return { type: "fallback", url: smartLink.fallbackUrl };
-    }
     return { type: "error", message: "Nenhum checkout disponível" };
   }
 
@@ -127,8 +124,6 @@ export async function resolveSmartLink(
     await recordFailure(checkout.id, errorMsg, threshold);
   }
 
-  if (smartLink.fallbackUrl) {
-    return { type: "fallback", url: smartLink.fallbackUrl };
-  }
-  return { type: "error", message: "Todos os checkouts estão indisponíveis" };
+  // Todos os checkouts falharam: não redireciona para lugar nenhum. Mostra página "nenhuma oferta".
+  return { type: "error", message: "Nenhuma oferta disponível no momento." };
 }
