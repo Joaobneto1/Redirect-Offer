@@ -1,0 +1,63 @@
+// Link Inteligente de Checkout — Modelagem para campanhas de tráfego pago
+// Produto → Grupos de Checkout → Checkouts (URLs) | Link Inteligente aponta para um grupo
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  groups    CheckoutGroup[]
+}
+
+model CheckoutGroup {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name             String
+  rotationStrategy String   @default("round-robin") // "round-robin" | "priority"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  checkouts        Checkout[]
+  smartLinks       SmartLink[]
+
+  @@index([productId])
+}
+
+model Checkout {
+  id                  String   @id @default(cuid())
+  groupId             String
+  group               CheckoutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  url                 String
+  priority            Int      @default(0)   // maior = maior prioridade (modo priority)
+  isActive            Boolean  @default(true)
+  lastError           String?
+  lastCheckedAt      DateTime?
+  lastUsedAt         DateTime?
+  consecutiveFailures Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([groupId, isActive])
+}
+
+model SmartLink {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  groupId     String
+  group       CheckoutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fallbackUrl String?  // quando todos os checkouts falharem
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
