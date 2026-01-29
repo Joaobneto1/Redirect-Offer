@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../contexts/AuthContext";
 
 const nav = [
   { path: "/", label: "Visão geral" },
@@ -13,6 +14,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const loc = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <div className="layout">
@@ -43,6 +45,16 @@ export function Layout({ children }: LayoutProps) {
           })}
         </nav>
         <div className="sidebar-footer">
+          {user && (
+            <div className="sidebar-user">
+              <span className="sidebar-user-email" title={user.email}>
+                {user.name || user.email}
+              </span>
+              <button type="button" className="btn btn--ghost sidebar-logout" onClick={logout}>
+                Sair
+              </button>
+            </div>
+          )}
           <a
             href="/health"
             target="_blank"

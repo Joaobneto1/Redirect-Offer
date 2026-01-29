@@ -1,3 +1,5 @@
+import { getToken, emitLogout } from "../lib/auth-storage";
+
 const BASE = "";
 
 async function request<T>(
@@ -9,27 +11,51 @@ async function request<T>(
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  const res = await fetch(url.toString(), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string>),
+  };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url.toString(), { ...init, headers });
+  if (res.status === 401) emitLogout();
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
   return data as T;
 }
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string | null;
+};
+
 export const api = {
-  overview: () => request<{
-    products: number;
-    groups: number;
-    checkouts: number;
-    smartLinks: number;
-    activeCheckouts: number;
-  }>(`${BASE}/api/overview`),
+  auth: {
+    login: (body: { email: string; password: string }) =>
+      request<{ user: AuthUser; token: string }>(`${BASE}/api/auth/login`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    register: (body: { email: string; password: string; name?: string }) =>
+      request<{ user: AuthUser; token: string }>(`${BASE}/api/auth/register`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    me: () =>
+      request<{ user: AuthUser }>(`${BASE}/api/auth/me`),
+  },
+
+  overview: () =>
+    request<{
+      products: number;
+      groups: number;
+      checkouts: number;
+      smartLinks: number;
+      activeCheckouts: number;
+    }>(`${BASE}/api/overview`),
 
   products: {
     list: () =>
@@ -92,6 +118,7 @@ export const api = {
           priority: number;
           isActive: boolean;
           lastError: string | null;
+          lastCheckedAt: string | null;
           lastUsedAt: string | null;
           consecutiveFailures: number;
         }>;
@@ -157,7 +184,6 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`${BASE}/api/checkouts/${id}`, { method: "DELETE" }),
-    /** Roda health check sob demanda e atualiza lastError/lastCheckedAt/isActive. */
     check: (id: string) =>
       request<{ ok: boolean; error?: string; status?: number }>(
         `${BASE}/api/checkouts/${id}/check`,
