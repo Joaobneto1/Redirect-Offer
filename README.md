@@ -16,8 +16,15 @@ cp .env.example .env
 # Configure DATABASE_URL e JWT_SECRET (mín. 16 caracteres)
 
 npm install
+# gerar client prisma e aplicar schema (cria as novas tabelas de Campaign/Endpoint se ainda não existirem)
 npm run db:generate
 npm run db:push
+
+# Opcional: migrar dados existentes (Products/Groups/Checkouts/SmartLinks -> Campaigns/Endpoints/CampaignLinks)
+# Este script popula as novas tabelas a partir dos modelos antigos:
+# npm run migrate:to-campaigns
+
+# Popular dados de exemplo (seed) e rodar servidor
 npm run seed
 npm run dev
 ```

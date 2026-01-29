@@ -28,7 +28,7 @@ export default function App() {
           }
         />
         <Route
-          path="/products"
+          path="/campaigns"
           element={
             <ProtectedRoute>
               <Layout>
@@ -38,7 +38,7 @@ export default function App() {
           }
         />
         <Route
-          path="/products/:id"
+          path="/campaigns/:id"
           element={
             <ProtectedRoute>
               <Layout>

@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 const nav = [
   { path: "/", label: "Visão geral" },
-  { path: "/products", label: "Produtos" },
+  { path: "/campaigns", label: "Campanhas" },
   { path: "/links", label: "Links inteligentes" },
 ] as const;
 

@@ -3,62 +3,60 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const product = await prisma.product.upsert({
-    where: { id: "seed-product-1" },
+  // Seed a sample campaign with two endpoints and a campaign link (slug)
+  const campaign = await prisma.campaign.upsert({
+    where: { id: "seed-campaign-1" },
     create: {
-      id: "seed-product-1",
-      name: "Produto Demo",
+      id: "seed-campaign-1",
+      name: "Campanha Demo",
     },
-    update: {},
+    update: { name: "Campanha Demo" },
   });
 
-  const group = await prisma.checkoutGroup.upsert({
-    where: { id: "seed-group-1" },
+  const endpoint1 = await prisma.endpoint.upsert({
+    where: { id: "seed-endpoint-1" },
     create: {
-      id: "seed-group-1",
-      productId: product.id,
-      name: "Checkout Principal",
-      rotationStrategy: "round-robin",
-    },
-    update: {},
-  });
-
-  await prisma.checkout.upsert({
-    where: { id: "seed-checkout-1" },
-    create: {
-      id: "seed-checkout-1",
-      groupId: group.id,
+      id: "seed-endpoint-1",
+      campaignId: campaign.id,
       url: "https://httpbin.org/status/200",
       priority: 0,
     },
-    update: {},
-  });
-
-  await prisma.checkout.upsert({
-    where: { id: "seed-checkout-2" },
-    create: {
-      id: "seed-checkout-2",
-      groupId: group.id,
-      url: "https://httpbin.org/redirect-to?url=https://example.com&status_code=302",
+    update: {
+      url: "https://httpbin.org/status/200",
       priority: 0,
     },
-    update: {},
   });
 
-  const link = await prisma.smartLink.upsert({
+  const endpoint2 = await prisma.endpoint.upsert({
+    where: { id: "seed-endpoint-2" },
+    create: {
+      id: "seed-endpoint-2",
+      campaignId: campaign.id,
+      url: "https://httpbin.org/redirect-to?url=https://example.com&status_code=302",
+      priority: 1,
+    },
+    update: {
+      url: "https://httpbin.org/redirect-to?url=https://example.com&status_code=302",
+      priority: 1,
+    },
+  });
+
+  const link = await prisma.campaignLink.upsert({
     where: { slug: "demo" },
     create: {
       slug: "demo",
-      groupId: group.id,
+      campaignId: campaign.id,
       fallbackUrl: "https://example.com",
     },
-    update: {},
+    update: {
+      fallbackUrl: "https://example.com",
+    },
   });
 
   console.log("Seed OK:");
-  console.log("  Product:", product.name);
-  console.log("  Group:", group.name);
-  console.log("  Smart link: /go/demo");
+  console.log("  Campaign:", campaign.name);
+  console.log("  Endpoints:", endpoint1.id, endpoint2.id);
+  console.log("  Campaign link: /go/demo");
   console.log("  Fallback:", link.fallbackUrl);
 }
 

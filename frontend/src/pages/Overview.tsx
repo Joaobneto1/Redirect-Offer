@@ -5,11 +5,10 @@ import { api } from "../api/client";
 import { PageHeader } from "../components/PageHeader";
 
 type OverviewStats = {
-  products: number;
-  groups: number;
-  checkouts: number;
-  smartLinks: number;
-  activeCheckouts: number;
+  campaigns: number;
+  endpoints: number;
+  links: number;
+  activeEndpoints: number;
 };
 
 const container = {
@@ -27,7 +26,7 @@ const item = {
 
 export function Overview() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
-  const [links, setLinks] = useState<Array<{ id: string; slug: string; group: { name: string; product: { name: string } } }>>([]);
+  const [links, setLinks] = useState<Array<{ id: string; slug: string; campaign: { name: string } }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,11 +41,10 @@ export function Overview() {
 
   const cards = stats
     ? [
-        { label: "Produtos", value: stats.products, path: "/products" },
-        { label: "Grupos", value: stats.groups, path: "/products" },
-        { label: "Checkouts", value: stats.checkouts, path: "/products" },
-        { label: "Ativos", value: stats.activeCheckouts, live: true },
-        { label: "Links", value: stats.smartLinks, path: "/links" },
+        { label: "Campanhas", value: stats.campaigns, path: "/campaigns" },
+        { label: "Endpoints", value: stats.endpoints, path: "/campaigns" },
+        { label: "Ativos", value: stats.activeEndpoints, live: true },
+        { label: "Links", value: stats.links, path: "/links" },
       ]
     : [];
 
@@ -68,30 +66,30 @@ export function Overview() {
       >
         <h3>Passo a passo</h3>
         <ol className="steps-list">
-          <li>
-            <span className="step-num">1</span>
-            <span className="step-text">
-              <strong>Produto (oferta)</strong> — Crie um produto em Produtos. Ex.: &quot;Oferta X&quot;.
-            </span>
-          </li>
-          <li>
-            <span className="step-num">2</span>
-            <span className="step-text">
-              <strong>Grupo</strong> — Dentro do produto, crie um grupo (ex.: Checkout Principal). Defina rotação: round-robin ou prioridade.
-            </span>
-          </li>
-          <li>
-            <span className="step-num">3</span>
-            <span className="step-text">
-              <strong>Checkouts</strong> — No grupo, adicione várias URLs de checkout (Hotmart, Eduzz, etc.). Use <strong>Verificar</strong> para testar se estão ativas; o sistema detecta oferta inativa por URL/HTML.
-            </span>
-          </li>
-          <li>
-            <span className="step-num">4</span>
-            <span className="step-text">
-              <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tenta checkout 1, depois 2, 3… até um responder. Se todos falharem, mostra &quot;Nenhuma oferta disponível&quot;.
-            </span>
-          </li>
+              <li>
+                <span className="step-num">1</span>
+                <span className="step-text">
+                  <strong>Campanha</strong> — Crie uma campanha em Campanhas. Ex.: "Black Friday".
+                </span>
+              </li>
+              <li>
+                <span className="step-num">2</span>
+                <span className="step-text">
+                  <strong>Endpoints</strong> — Dentro da campanha, adicione endpoints (URLs de checkout: Hotmart, Eduzz, etc.). Configure prioridade se necessário.
+                </span>
+              </li>
+              <li>
+                <span className="step-num">3</span>
+                <span className="step-text">
+                  Use <strong>Verificar</strong> para testar cada endpoint; o sistema faz validação profunda (URL final e HTML) para detectar ofertas inativas.
+                </span>
+              </li>
+              <li>
+                <span className="step-num">4</span>
+                <span className="step-text">
+                  <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tentará os endpoints configurados na campanha (ordem por prioridade/rotação). Se todos falharem, mostramos uma página de fallback.
+                </span>
+              </li>
         </ol>
       </motion.section>
 
@@ -192,40 +190,38 @@ export function Overview() {
                 </Link>
               </div>
               <div className="card-body" style={{ paddingTop: 0 }}>
-                {links.length === 0 ? (
-                  <p className="page-desc" style={{ margin: 0 }}>
-                    Nenhum link criado. Crie um em Produtos → grupo → Links.
-                  </p>
-                ) : (
+                  {links.length === 0 ? (
+                    <p className="page-desc" style={{ margin: 0 }}>
+                      Nenhum link criado. Crie um em Campanhas → Endpoints → Links.
+                    </p>
+                  ) : (
                   <div className="table-wrap">
                     <table className="table">
                       <thead>
-                        <tr>
-                          <th>Slug</th>
-                          <th>Grupo</th>
-                          <th>Produto</th>
-                          <th>URL</th>
-                        </tr>
+                      <tr>
+                        <th>Slug</th>
+                        <th>Campanha</th>
+                        <th>URL</th>
+                      </tr>
                       </thead>
                       <tbody>
                         {links.map((l) => (
-                          <tr key={l.id}>
-                            <td>
-                              <span className="mono">{l.slug}</span>
-                            </td>
-                            <td>{l.group.name}</td>
-                            <td>{l.group.product.name}</td>
-                            <td>
-                              <a
-                                href={`${goBase}/${l.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="link-url"
-                              >
-                                /go/{l.slug}
-                              </a>
-                            </td>
-                          </tr>
+                        <tr key={l.id}>
+                          <td>
+                            <span className="mono">{l.slug}</span>
+                          </td>
+                          <td>{l.campaign?.name ?? "—"}</td>
+                          <td>
+                            <a
+                              href={`${goBase}/${l.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link-url"
+                            >
+                              /go/{l.slug}
+                            </a>
+                          </td>
+                        </tr>
                         ))}
                       </tbody>
                     </table>

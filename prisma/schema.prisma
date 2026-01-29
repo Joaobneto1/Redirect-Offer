@@ -10,6 +10,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Simplified campaign model to make domain easier to understand:
+/// Campaign  <- Endpoint[]  (each endpoint is a checkout URL)
+/// CampaignLink (slug) -> points to a Campaign
+model Campaign {
+  id        String    @id @default(cuid())
+  name      String
+  autoCheckEnabled Boolean @default(false)
+  autoCheckInterval Int     @default(60) // seconds
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  endpoints Endpoint[]
+  links     CampaignLink[]
+}
+
+model Endpoint {
+  id                  String   @id @default(cuid())
+  campaignId          String
+  campaign            Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  url                 String
+  priority            Int      @default(0)
+  isActive            Boolean  @default(true)
+  lastError           String?
+  lastCheckedAt       DateTime?
+  lastUsedAt          DateTime?
+  consecutiveFailures Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([campaignId])
+}
+
+model CampaignLink {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  fallbackUrl String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -17,56 +58,4 @@ model User {
   name         String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-}
-
-model Product {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  groups    CheckoutGroup[]
-}
-
-model CheckoutGroup {
-  id               String   @id @default(cuid())
-  productId        String
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name             String
-  rotationStrategy String   @default("round-robin") // "round-robin" | "priority"
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  checkouts        Checkout[]
-  smartLinks       SmartLink[]
-
-  @@index([productId])
-}
-
-model Checkout {
-  id                  String   @id @default(cuid())
-  groupId             String
-  group               CheckoutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  url                 String
-  priority            Int      @default(0)   // maior = maior prioridade (modo priority)
-  isActive            Boolean  @default(true)
-  lastError           String?
-  lastCheckedAt      DateTime?
-  lastUsedAt         DateTime?
-  consecutiveFailures Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@index([groupId])
-  @@index([groupId, isActive])
-}
-
-model SmartLink {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  groupId     String
-  group       CheckoutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  fallbackUrl String?  // quando todos os checkouts falharem
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([slug])
 }

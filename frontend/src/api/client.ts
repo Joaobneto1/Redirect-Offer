@@ -57,6 +57,63 @@ export const api = {
       activeCheckouts: number;
     }>(`${BASE}/api/overview`),
 
+  campaigns: {
+    list: () =>
+      request<
+        Array<{
+          id: string;
+          name: string;
+          createdAt: string;
+          _count: { endpoints: number; links: number };
+        }>
+      >(`${BASE}/api/campaigns`),
+    get: (id: string) =>
+      request<{
+        id: string;
+        name: string;
+        createdAt: string;
+        autoCheckEnabled?: boolean;
+        autoCheckInterval?: number;
+        endpoints: Array<{
+          id: string;
+          url: string;
+          priority: number;
+          isActive: boolean;
+        }>;
+        links: Array<{ id: string; slug: string; fallbackUrl: string | null }>;
+      }>(`${BASE}/api/campaigns/${id}`),
+    create: (body: { name: string }) =>
+      request<{ id: string; name: string }>(`${BASE}/api/campaigns`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: { name?: string }) =>
+      request<{ id: string; name: string }>(`${BASE}/api/campaigns/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      request<void>(`${BASE}/api/campaigns/${id}`, { method: "DELETE" }),
+  },
+  endpoints: {
+    create: (body: { campaignId: string; url: string; priority?: number }) =>
+      request<{ id: string; url: string; priority: number }>(`${BASE}/api/campaigns/endpoints`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    check: (id: string) =>
+      request<{ ok: boolean; error?: string; status?: number; inactiveReason?: string }>(`${BASE}/api/endpoints/${id}/check`, {
+        method: "POST",
+      }),
+    update: (id: string, body: { url?: string; priority?: number; isActive?: boolean }) =>
+      request<{ id: string; url: string; priority: number; isActive: boolean }>(`${BASE}/api/endpoints/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      request<void>(`${BASE}/api/endpoints/${id}`, { method: "DELETE" }),
+  },
+
   products: {
     list: () =>
       request<
@@ -192,39 +249,34 @@ export const api = {
   },
 
   smartLinks: {
-    list: (groupId?: string) =>
+    list: (campaignId?: string) =>
       request<
         Array<{
           id: string;
           slug: string;
-          groupId: string;
+          campaignId: string;
           fallbackUrl: string | null;
-          group: {
-            id: string;
-            name: string;
-            product: { id: string; name: string };
-          };
+          campaign: { id: string; name: string };
         }>
-      >(`${BASE}/api/smart-links`, { params: groupId ? { groupId } : {} }),
+      >(`${BASE}/api/smart-links`, { params: campaignId ? { campaignId } : {} }),
     get: (id: string) =>
       request<{
         id: string;
         slug: string;
-        groupId: string;
+        campaignId: string;
         fallbackUrl: string | null;
-        group: {
+        campaign: {
           id: string;
           name: string;
-          product: { id: string; name: string };
-          checkouts: Array<{ id: string; url: string; isActive: boolean }>;
+          endpoints: Array<{ id: string; url: string; isActive: boolean }>;
         };
       }>(`${BASE}/api/smart-links/${id}`),
     create: (body: {
       slug: string;
-      groupId: string;
+      campaignId: string;
       fallbackUrl?: string | null;
     }) =>
-      request<{ id: string; slug: string; groupId: string; fallbackUrl: string | null }>(
+      request<{ id: string; slug: string; campaignId: string; fallbackUrl: string | null }>(
         `${BASE}/api/smart-links`,
         { method: "POST", body: JSON.stringify(body) }
       ),

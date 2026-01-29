@@ -4,20 +4,17 @@ import { prisma } from "../../lib/prisma.js";
 const router = Router();
 
 router.get("/", async (_req, res: Response) => {
-  const [products, groups, checkouts, smartLinks, activeCheckouts] =
-    await Promise.all([
-      prisma.product.count(),
-      prisma.checkoutGroup.count(),
-      prisma.checkout.count(),
-      prisma.smartLink.count(),
-      prisma.checkout.count({ where: { isActive: true } }),
-    ]);
+  const [campaigns, endpoints, links, activeEndpoints] = await Promise.all([
+    prisma.campaign.count(),
+    prisma.endpoint.count(),
+    prisma.campaignLink.count(),
+    prisma.endpoint.count({ where: { isActive: true } }),
+  ]);
   res.json({
-    products,
-    groups,
-    checkouts,
-    smartLinks,
-    activeCheckouts,
+    campaigns,
+    endpoints,
+    links,
+    activeEndpoints,
   });
 });
 

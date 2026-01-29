@@ -4,12 +4,13 @@ import { motion } from "framer-motion";
 import { api } from "../api/client";
 import { PageHeader } from "../components/PageHeader";
 import { Modal } from "../components/Modal";
+import { useToast } from "../components/ToastProvider";
 
-type Product = {
+type Campaign = {
   id: string;
   name: string;
   createdAt: string;
-  _count: { groups: number };
+  _count: { endpoints: number; links: number };
 };
 
 const container = {
@@ -26,15 +27,16 @@ const item = {
 };
 
 export function Products() {
-  const [list, setList] = useState<Product[]>([]);
+  const [list, setList] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const fetchProducts = () => {
-    api.products.list().then(setList).catch(console.error).finally(() => setLoading(false));
+    api.campaigns.list().then(setList).catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -46,12 +48,15 @@ export function Products() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.products.create({ name: name.trim() });
+      await api.campaigns.create({ name: name.trim() });
       setName("");
       setModal(false);
       fetchProducts();
+      toast.show("Campanha criada", "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar");
+      const msg = err instanceof Error ? err.message : "Erro ao criar";
+      setError(msg);
+      toast.show(`Erro: ${msg}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -60,11 +65,11 @@ export function Products() {
   return (
     <>
       <PageHeader
-        title="Produtos"
-        desc="Gerencie produtos e seus grupos de checkout."
+        title="Campanhas"
+        desc="Gerencie campanhas e seus endpoints de checkout."
         action={
           <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
-            Novo produto
+            Nova campanha
           </button>
         }
       />
@@ -100,7 +105,7 @@ export function Products() {
               id="product-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: Black Friday"
+              placeholder="Ex.: Black Friday 2026"
               autoFocus
             />
           </div>
@@ -122,10 +127,10 @@ export function Products() {
           style={{ padding: "var(--space-16)" }}
         >
           <div className="empty-state">
-            <h3>Nenhum produto</h3>
-            <p>Crie um produto para organizar grupos de checkout e links.</p>
+            <h3>Nenhuma campanha</h3>
+            <p>Crie uma campanha para organizar endpoints e links inteligentes.</p>
             <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
-              Novo produto
+              Nova campanha
             </button>
           </div>
         </motion.div>
@@ -138,10 +143,7 @@ export function Products() {
         >
           {list.map((p) => (
             <motion.div key={p.id} variants={item}>
-              <Link
-                to={`/products/${p.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
+              <Link to={`/campaigns/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                 <motion.div
                   className="card"
                   whileHover={{ y: -2 }}
@@ -154,7 +156,7 @@ export function Products() {
                         {p.name}
                       </h3>
                       <p style={{ margin: "var(--space-1) 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                        {p._count.groups} grupo{p._count.groups !== 1 ? "s" : ""}
+                        {p._count.endpoints} endpoint{p._count.endpoints !== 1 ? "s" : ""} · {p._count.links} link{p._count.links !== 1 ? "s" : ""}
                       </p>
                     </div>
                     <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>→</span>

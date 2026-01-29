@@ -11,3 +11,8 @@ const server = app.listen(config.PORT, () => {
 });
 
 export { server };
+
+// start auto-checker background job (global poll interval in seconds, env optional)
+import { startAutoChecker } from "./services/auto-checker.js";
+const GLOBAL_POLL = Number(process.env.AUTO_CHECK_POLL_SEC ?? "15");
+startAutoChecker(GLOBAL_POLL);

@@ -159,7 +159,7 @@ export function GroupDetail() {
   return (
     <>
       <Link
-        to={`/products/${group.productId}`}
+        to={`/campaigns/${group.productId}`}
         className="btn btn--ghost"
         style={{ marginBottom: "var(--space-4)", alignSelf: "flex-start" }}
       >

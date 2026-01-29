@@ -3,17 +3,19 @@ import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../api/client";
 import { PageHeader } from "../components/PageHeader";
+import { useToast } from "../components/ToastProvider";
 import { Modal } from "../components/Modal";
 
 type ProductDetail = {
   id: string;
   name: string;
-  groups: Array<{
+  endpoints: Array<{
     id: string;
-    name: string;
-    rotationStrategy: string;
-    _count: { checkouts: number; smartLinks: number };
+    url: string;
+    priority: number;
+    isActive: boolean;
   }>;
+  links: Array<{ id: string; slug: string; fallbackUrl: string | null }>;
 };
 
 const container = {
@@ -34,16 +36,24 @@ export function ProductDetail() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [strategy, setStrategy] = useState<"round-robin" | "priority">("round-robin");
+  const [endpointUrl, setEndpointUrl] = useState("");
+  const [endpointPriority, setEndpointPriority] = useState(0);
+  const [autoCheckEnabledState, setAutoCheckEnabledState] = useState<boolean>(false);
+  const [autoCheckIntervalState, setAutoCheckIntervalState] = useState<number>(60);
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editEndpoint, setEditEndpoint] = useState<{ id: string; url: string; priority: number } | null>(null);
 
   const fetchProduct = () => {
     if (!id) return;
-    api.products
+    api.campaigns
       .get(id)
-      .then(setProduct)
+      .then((res) => {
+        setProduct(res);
+        setAutoCheckEnabledState(res.autoCheckEnabled ?? false);
+        setAutoCheckIntervalState(res.autoCheckInterval ?? 60);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -52,22 +62,23 @@ export function ProductDetail() {
     fetchProduct();
   }, [id]);
 
-  const handleCreateGroup = async (e: React.FormEvent) => {
+  const handleCreateEndpoint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
     setError(null);
     setSubmitting(true);
     try {
-      await api.groups.create({
-        productId: id,
-        name: groupName.trim(),
-        rotationStrategy: strategy,
+      await api.endpoints.create({
+        campaignId: id,
+        url: endpointUrl.trim(),
+        priority: endpointPriority,
       });
-      setGroupName("");
+      setEndpointUrl("");
+      setEndpointPriority(0);
       setModal(false);
       fetchProduct();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar grupo");
+      setError(err instanceof Error ? err.message : "Erro ao criar endpoint");
     } finally {
       setSubmitting(false);
     }
@@ -81,19 +92,53 @@ export function ProductDetail() {
   return (
     <>
       <Link
-        to="/products"
+        to="/campaigns"
         className="btn btn--ghost"
         style={{ marginBottom: "var(--space-4)", alignSelf: "flex-start" }}
       >
-        ← Produtos
+        ← Campanhas
       </Link>
       <PageHeader
         title={product.name}
-        desc="Grupos de checkout e rotação."
+        desc="Endpoints de checkout e links associados."
         action={
-          <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
-            Novo grupo
-          </button>
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+            <label style={{ color: "var(--text-muted)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={autoCheckEnabledState}
+                onChange={(e) => setAutoCheckEnabledState(e.target.checked)}
+              />
+              Auto-check
+            </label>
+            <label style={{ color: "var(--text-muted)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              Intervalo (s):
+              <input
+                type="number"
+                min={5}
+                value={autoCheckIntervalState}
+                onChange={(e) => setAutoCheckIntervalState(Math.max(5, Number(e.target.value || 60)))}
+                style={{ width: 80, padding: "0.25rem", borderRadius: 6, border: "1px solid var(--border-default)", background: "var(--bg-raised)", color: "var(--text-primary)" }}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={async () => {
+                try {
+                  await api.campaigns.update(id!, { autoCheckEnabled: autoCheckEnabledState, autoCheckInterval: autoCheckIntervalState });
+                  fetchProduct();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              Salvar
+            </button>
+            <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
+              Novo endpoint
+            </button>
+          </div>
         }
       />
 
@@ -102,9 +147,10 @@ export function ProductDetail() {
         onClose={() => {
           setModal(false);
           setError(null);
-          setGroupName("");
+          setEndpointUrl("");
+          setEndpointPriority(0);
         }}
-        title="Novo grupo de checkout"
+        title="Novo endpoint"
         footer={
           <>
             <button
@@ -116,36 +162,34 @@ export function ProductDetail() {
             </button>
             <button
               type="submit"
-              form="form-group"
+              form="form-endpoint"
               className="btn btn--primary"
-              disabled={submitting || !groupName.trim()}
+              disabled={submitting || !endpointUrl.trim()}
             >
               {submitting ? "Criando…" : "Criar"}
             </button>
           </>
         }
       >
-        <form id="form-group" onSubmit={handleCreateGroup}>
+        <form id="form-endpoint" onSubmit={handleCreateEndpoint}>
           <div className="input-group">
-            <label htmlFor="group-name">Nome</label>
+            <label htmlFor="endpoint-url">URL do endpoint</label>
             <input
-              id="group-name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              placeholder="Ex.: Checkout principal"
+              id="endpoint-url"
+              value={endpointUrl}
+              onChange={(e) => setEndpointUrl(e.target.value)}
+              placeholder="https://..."
               autoFocus
             />
           </div>
           <div className="input-group">
-            <label htmlFor="group-strategy">Rotação</label>
-            <select
-              id="group-strategy"
-              value={strategy}
-              onChange={(e) => setStrategy(e.target.value as "round-robin" | "priority")}
-            >
-              <option value="round-robin">Round-robin (menos usado primeiro)</option>
-              <option value="priority">Prioridade (maior primeiro)</option>
-            </select>
+            <label htmlFor="endpoint-priority">Prioridade (maior = preferido)</label>
+            <input
+              id="endpoint-priority"
+              type="number"
+              value={endpointPriority}
+              onChange={(e) => setEndpointPriority(parseInt(e.target.value, 10) || 0)}
+            />
           </div>
           {error && (
             <p style={{ color: "var(--danger)", fontSize: "0.9rem", marginTop: "var(--space-2)" }}>
@@ -155,7 +199,7 @@ export function ProductDetail() {
         </form>
       </Modal>
 
-      {product.groups.length === 0 ? (
+      {product.endpoints.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -163,10 +207,10 @@ export function ProductDetail() {
           style={{ padding: "var(--space-16)" }}
         >
           <div className="empty-state">
-            <h3>Nenhum grupo</h3>
-            <p>Adicione um grupo para definir checkouts e links inteligentes.</p>
+            <h3>Nenhum endpoint</h3>
+            <p>Adicione endpoints para esta campanha (URLs de checkout).</p>
             <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
-              Novo grupo
+              Novo endpoint
             </button>
           </div>
         </motion.div>
@@ -177,37 +221,107 @@ export function ProductDetail() {
           animate="show"
           style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
         >
-          {product.groups.map((g) => (
-            <motion.div key={g.id} variants={item}>
-              <Link
-                to={`/groups/${g.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
+          {product.endpoints.map((e) => (
+            <motion.div key={e.id} variants={item}>
+              <motion.div
+                className="card"
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+                style={{ padding: "var(--space-5) var(--space-6)" }}
               >
-                <motion.div
-                  className="card"
-                  whileHover={{ y: -2 }}
-                  transition={{ duration: 0.2 }}
-                  style={{ padding: "var(--space-5) var(--space-6)" }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 600 }}>
-                        {g.name}
-                      </h3>
-                      <p style={{ margin: "var(--space-1) 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                        {g._count.checkouts} checkout{g._count.checkouts !== 1 ? "s" : ""} · {g._count.smartLinks} link{g._count.smartLinks !== 1 ? "s" : ""} ·{" "}
-                        <span className="mono" style={{ fontSize: "0.85rem" }}>
-                          {g.rotationStrategy}
-                        </span>
-                      </p>
-                    </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 600 }}>
+                      {e.url}
+                    </h3>
+                    <p style={{ margin: "var(--space-1) 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                      Prioridade: {e.priority} · Status: {e.isActive ? "Ativo" : "Inativo"}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+                    <button
+                      className="btn btn--ghost"
+                      onClick={async () => {
+                        try {
+                          toast.show("Verificando endpoint...", "info");
+                          const res = await api.endpoints.check(e.id);
+                          if (res?.ok) toast.show("Endpoint OK", "success");
+                          else toast.show(`Falha: ${res?.error ?? "erro"}`, "error");
+                          fetchProduct();
+                        } catch (err) {
+                          toast.show("Erro ao verificar endpoint", "error");
+                          console.error(err);
+                        }
+                      }}
+                    >
+                      Verificar
+                    </button>
+                    <button
+                      className="btn btn--ghost"
+                      onClick={() => setEditEndpoint({ id: e.id, url: e.url, priority: e.priority })}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="btn btn--ghost"
+                      style={{ color: "var(--danger)" }}
+                      onClick={async () => {
+                        if (!confirm("Remover endpoint?")) return;
+                        try {
+                          await api.endpoints.delete(e.id);
+                          toast.show("Endpoint removido", "success");
+                          fetchProduct();
+                        } catch (err) {
+                          toast.show("Erro ao remover", "error");
+                        }
+                      }}
+                    >
+                      Excluir
+                    </button>
                     <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>→</span>
                   </div>
-                </motion.div>
-              </Link>
+                </div>
+              </motion.div>
             </motion.div>
           ))}
         </motion.div>
+      )}
+      {editEndpoint && (
+        <Modal
+          open={!!editEndpoint}
+          onClose={() => setEditEndpoint(null)}
+          title="Editar endpoint"
+          footer={
+            <>
+              <button type="button" className="btn btn--secondary" onClick={() => setEditEndpoint(null)}>Cancelar</button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={async () => {
+                  try {
+                    await api.endpoints.update(editEndpoint.id, { url: editEndpoint.url, priority: editEndpoint.priority });
+                    toast.show("Endpoint atualizado", "success");
+                    setEditEndpoint(null);
+                    fetchProduct();
+                  } catch (err) {
+                    toast.show("Erro ao atualizar", "error");
+                  }
+                }}
+              >
+                Salvar
+              </button>
+            </>
+          }
+        >
+          <div className="input-group">
+            <label>URL</label>
+            <input value={editEndpoint.url} onChange={(e) => setEditEndpoint({ ...editEndpoint, url: e.target.value })} />
+          </div>
+          <div className="input-group">
+            <label>Prioridade</label>
+            <input type="number" value={editEndpoint.priority} onChange={(e) => setEditEndpoint({ ...editEndpoint, priority: Number(e.target.value) })} />
+          </div>
+        </Modal>
       )}
     </>
   );

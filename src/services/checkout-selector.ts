@@ -1,10 +1,10 @@
-import type { Checkout } from "@prisma/client";
+import type { Endpoint } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { checkCheckoutHealth } from "./health-check.js";
 import type { Env } from "../config.js";
 
 export type RedirectOutcome =
-  | { type: "redirect"; url: string; checkoutId: string }
+  | { type: "redirect"; url: string; endpointId: string }
   | { type: "fallback"; url: string }
   | { type: "error"; message: string };
 
@@ -18,11 +18,11 @@ export interface ResolveSmartLinkInput {
  * Round-robin: menos usado primeiro (lastUsedAt ASC, nulls first).
  * Priority: maior priority primeiro.
  */
-function sortCheckouts(
-  checkouts: Checkout[],
+function sortEndpoints(
+  endpoints: Endpoint[],
   strategy: string
-): Checkout[] {
-  const active = checkouts.filter((c) => c.isActive);
+): Endpoint[] {
+  const active = endpoints.filter((c) => c.isActive);
   if (strategy === "priority") {
     return [...active].sort((a, b) => b.priority - a.priority);
   }
@@ -38,12 +38,12 @@ function sortCheckouts(
  * Se consecutiveFailures >= threshold, desativa.
  */
 async function recordFailure(
-  checkoutId: string,
+  endpointId: string,
   error: string,
   threshold: number
 ): Promise<void> {
-  const c = await prisma.checkout.update({
-    where: { id: checkoutId },
+  const c = await prisma.endpoint.update({
+    where: { id: endpointId },
     data: {
       lastError: error,
       lastCheckedAt: new Date(),
@@ -51,8 +51,8 @@ async function recordFailure(
     },
   });
   if (c.consecutiveFailures >= threshold) {
-    await prisma.checkout.update({
-      where: { id: checkoutId },
+    await prisma.endpoint.update({
+      where: { id: endpointId },
       data: { isActive: false },
     });
   }
@@ -61,9 +61,9 @@ async function recordFailure(
 /**
  * Marca uso e zera falhas consecutivas em caso de sucesso.
  */
-async function recordSuccess(checkoutId: string): Promise<void> {
-  await prisma.checkout.update({
-    where: { id: checkoutId },
+async function recordSuccess(endpointId: string): Promise<void> {
+  await prisma.endpoint.update({
+    where: { id: endpointId },
     data: {
       lastUsedAt: new Date(),
       lastCheckedAt: new Date(),
@@ -81,49 +81,46 @@ export async function resolveSmartLink(
 ): Promise<RedirectOutcome> {
   const { slug, env } = input;
 
-  const smartLink = await prisma.smartLink.findUnique({
+  const campaignLink = await prisma.campaignLink.findUnique({
     where: { slug },
     include: {
-      group: {
+      campaign: {
         include: {
-          checkouts: true,
+          endpoints: true,
         },
       },
     },
   });
 
-  if (!smartLink) {
+  if (!campaignLink) {
     return { type: "error", message: "Link não encontrado" };
   }
 
-  const { group } = smartLink;
-  const ordered = sortCheckouts(
-    group.checkouts,
-    group.rotationStrategy
-  );
+  const { campaign } = campaignLink;
+  const ordered = sortEndpoints(campaign.endpoints, "priority");
 
   if (ordered.length === 0) {
-    return { type: "error", message: "Nenhum checkout disponível" };
+    return { type: "error", message: "Nenhum endpoint disponível" };
   }
 
   const healthConfig = {
     timeoutMs: env.HEALTH_CHECK_TIMEOUT_MS,
     allowedStatuses: env.HEALTH_CHECK_ALLOWED_STATUSES,
+    deep: true,
   };
   const threshold = env.FAILURE_THRESHOLD;
 
-  for (const checkout of ordered) {
-    const result = await checkCheckoutHealth(checkout.url, healthConfig);
+  for (const endpoint of ordered) {
+    const result = await checkCheckoutHealth(endpoint.url, healthConfig);
 
     if (result.ok) {
-      await recordSuccess(checkout.id);
-      return { type: "redirect", url: checkout.url, checkoutId: checkout.id };
+      await recordSuccess(endpoint.id);
+      return { type: "redirect", url: endpoint.url, endpointId: endpoint.id };
     }
 
-    const errorMsg = result.error ?? `HTTP ${result.status ?? "unknown"}`;
-    await recordFailure(checkout.id, errorMsg, threshold);
+    const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "unknown"}`;
+    await recordFailure(endpoint.id, errorMsg, threshold);
   }
 
-  // Todos os checkouts falharam: não redireciona para lugar nenhum. Mostra página "nenhuma oferta".
   return { type: "error", message: "Nenhuma oferta disponível no momento." };
 }

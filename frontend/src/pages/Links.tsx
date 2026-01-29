@@ -7,19 +7,14 @@ import { Modal } from "../components/Modal";
 type SmartLink = {
   id: string;
   slug: string;
-  groupId: string;
+  campaignId: string;
   fallbackUrl: string | null;
-  group: {
-    id: string;
-    name: string;
-    product: { id: string; name: string };
-  };
+  campaign: { id: string; name: string };
 };
 
-type Group = {
+type Campaign = {
   id: string;
   name: string;
-  product: { id: string; name: string };
 };
 
 const container = {
@@ -49,10 +44,10 @@ export function Links() {
   const [copied, setCopied] = useState<string | null>(null);
 
   const fetchData = () => {
-    Promise.all([api.smartLinks.list(), api.groups.list()])
-      .then(([l, g]) => {
+    Promise.all([api.smartLinks.list(), api.campaigns.list()])
+      .then(([l, c]) => {
         setLinks(l);
-        setGroups(g);
+        setGroups(c);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -65,7 +60,7 @@ export function Links() {
   useEffect(() => {
     if (editing) {
       setSlug(editing.slug);
-      setGroupId(editing.groupId);
+      setGroupId(editing.campaignId);
       setFallbackUrl(editing.fallbackUrl ?? "");
     } else if (!modal) {
       setSlug("");
@@ -107,10 +102,10 @@ export function Links() {
       if (editing) {
         await api.smartLinks.update(editing.id, payload);
       } else {
-        if (!groupId) throw new Error("Selecione um grupo");
+        if (!groupId) throw new Error("Selecione uma campanha");
         await api.smartLinks.create({
           ...payload,
-          groupId,
+          campaignId: groupId,
         });
       }
       closeModal();
@@ -198,16 +193,16 @@ export function Links() {
           </div>
           {!editing && (
             <div className="input-group">
-              <label htmlFor="link-group">Grupo</label>
+              <label htmlFor="link-campaign">Campanha</label>
               <select
-                id="link-group"
+                id="link-campaign"
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
               >
-                <option value="">Selecione um grupo</option>
+                <option value="">Selecione uma campanha</option>
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
-                    {g.product.name} → {g.name}
+                    {g.name}
                   </option>
                 ))}
               </select>
@@ -262,8 +257,7 @@ export function Links() {
                 <tr>
                   <th>Slug</th>
                   <th>URL</th>
-                  <th>Grupo</th>
-                  <th>Produto</th>
+                  <th>Campanha</th>
                   <th>Fallback</th>
                   <th></th>
                 </tr>
@@ -300,8 +294,7 @@ export function Links() {
                         {copied === l.slug ? "Copiado" : "Copiar"}
                       </button>
                     </td>
-                    <td>{l.group.name}</td>
-                    <td>{l.group.product.name}</td>
+                    <td>{l.campaign.name}</td>
                     <td style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
                       {l.fallbackUrl || "—"}
                     </td>
