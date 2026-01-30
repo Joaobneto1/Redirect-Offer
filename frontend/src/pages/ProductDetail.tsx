@@ -6,15 +6,19 @@ import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/ToastProvider";
 import { Modal } from "../components/Modal";
 
+type EndpointData = {
+  id: string;
+  url: string;
+  priority: number;
+  isActive: boolean;
+  lastError?: string | null;
+  consecutiveFailures?: number;
+};
+
 type ProductDetail = {
   id: string;
   name: string;
-  endpoints: Array<{
-    id: string;
-    url: string;
-    priority: number;
-    isActive: boolean;
-  }>;
+  endpoints: EndpointData[];
   links: Array<{ id: string; slug: string; fallbackUrl: string | null }>;
 };
 
@@ -37,7 +41,6 @@ export function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [endpointUrl, setEndpointUrl] = useState("");
-  const [endpointPriority, setEndpointPriority] = useState(0);
   const [autoCheckEnabledState, setAutoCheckEnabledState] = useState<boolean>(false);
   const [autoCheckIntervalState, setAutoCheckIntervalState] = useState<number>(60);
   const toast = useToast();
@@ -51,7 +54,9 @@ export function ProductDetail() {
     api.campaigns
       .get(id)
       .then((res) => {
-        setProduct(res);
+        // Ordenar endpoints por prioridade (menor = primeiro)
+        const sortedEndpoints = [...res.endpoints].sort((a, b) => a.priority - b.priority);
+        setProduct({ ...res, endpoints: sortedEndpoints });
         setAutoCheckEnabledState(res.autoCheckEnabled ?? false);
         setAutoCheckIntervalState(res.autoCheckInterval ?? 60);
       })
@@ -63,6 +68,13 @@ export function ProductDetail() {
     fetchProduct();
   }, [id]);
 
+  // Calcular próxima prioridade (último + 1)
+  const getNextPriority = () => {
+    if (!product || product.endpoints.length === 0) return 0;
+    const maxPriority = Math.max(...product.endpoints.map(e => e.priority));
+    return maxPriority + 1;
+  };
+
   const handleCreateEndpoint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -72,11 +84,11 @@ export function ProductDetail() {
       await api.endpoints.create({
         campaignId: id,
         url: endpointUrl.trim(),
-        priority: endpointPriority,
+        priority: getNextPriority(), // Auto-incrementar prioridade
       });
       setEndpointUrl("");
-      setEndpointPriority(0);
       setModal(false);
+      toast.show("Endpoint adicionado", "success");
       fetchProduct();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar endpoint");
@@ -97,6 +109,34 @@ export function ProductDetail() {
     }
   };
 
+  // Mover endpoint para cima (diminuir prioridade)
+  const moveUp = async (endpoint: EndpointData, index: number) => {
+    if (index === 0 || !product) return;
+    const prevEndpoint = product.endpoints[index - 1];
+    try {
+      // Trocar prioridades
+      await api.endpoints.update(endpoint.id, { priority: prevEndpoint.priority });
+      await api.endpoints.update(prevEndpoint.id, { priority: endpoint.priority });
+      fetchProduct();
+    } catch {
+      toast.show("Erro ao reordenar", "error");
+    }
+  };
+
+  // Mover endpoint para baixo (aumentar prioridade)
+  const moveDown = async (endpoint: EndpointData, index: number) => {
+    if (!product || index >= product.endpoints.length - 1) return;
+    const nextEndpoint = product.endpoints[index + 1];
+    try {
+      // Trocar prioridades
+      await api.endpoints.update(endpoint.id, { priority: nextEndpoint.priority });
+      await api.endpoints.update(nextEndpoint.id, { priority: endpoint.priority });
+      fetchProduct();
+    } catch {
+      toast.show("Erro ao reordenar", "error");
+    }
+  };
+
   if (!id) return null;
   if (loading || !product) {
     return <p className="page-desc">Carregando…</p>;
@@ -113,7 +153,7 @@ export function ProductDetail() {
       </Link>
       <PageHeader
         title={product.name}
-        desc="Endpoints de checkout e links associados."
+        desc="Endpoints são testados na ordem da lista. O primeiro ativo é usado."
         action={
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button
@@ -179,7 +219,6 @@ export function ProductDetail() {
           setModal(false);
           setError(null);
           setEndpointUrl("");
-          setEndpointPriority(0);
         }}
         title="Novo endpoint"
         footer={
@@ -197,30 +236,24 @@ export function ProductDetail() {
               className="btn btn--primary"
               disabled={submitting || !endpointUrl.trim()}
             >
-              {submitting ? "Criando…" : "Criar"}
+              {submitting ? "Criando…" : "Adicionar"}
             </button>
           </>
         }
       >
         <form id="form-endpoint" onSubmit={handleCreateEndpoint}>
           <div className="input-group">
-            <label htmlFor="endpoint-url">URL do endpoint</label>
+            <label htmlFor="endpoint-url">URL do checkout Hotmart</label>
             <input
               id="endpoint-url"
               value={endpointUrl}
               onChange={(e) => setEndpointUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder="https://pay.hotmart.com/..."
               autoFocus
             />
-          </div>
-          <div className="input-group">
-            <label htmlFor="endpoint-priority">Prioridade (maior = preferido)</label>
-            <input
-              id="endpoint-priority"
-              type="number"
-              value={endpointPriority}
-              onChange={(e) => setEndpointPriority(parseInt(e.target.value, 10) || 0)}
-            />
+            <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+              Será adicionado ao final da lista. Use as setas para reordenar.
+            </p>
           </div>
           {error && (
             <p style={{ color: "var(--danger)", fontSize: "0.9rem", marginTop: "var(--space-2)" }}>
@@ -240,92 +273,125 @@ export function ProductDetail() {
         >
           <div className="empty-state">
             <h3>Nenhum endpoint</h3>
-            <p>Adicione endpoints para esta campanha (URLs de checkout).</p>
+            <p>Adicione URLs de checkout Hotmart para esta campanha.</p>
             <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
               Novo endpoint
             </button>
           </div>
         </motion.div>
       ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="endpoints-list"
-        >
-          {product.endpoints.map((e) => (
-            <motion.div key={e.id} variants={item}>
-              <motion.div
-                className="card endpoint-card"
-                whileHover={{ y: -2 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="endpoint-card-content">
-                  <div className="endpoint-card-info">
-                    <h3 className="endpoint-url">{e.url}</h3>
-                    <p className="endpoint-meta">
-                      Prioridade: {e.priority} ·
-                      <span className={e.isActive ? "status-active" : "status-inactive"}>
-                        {e.isActive ? " Ativo" : " Inativo"}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="endpoint-card-actions">
-                    <button
-                      className="btn btn--ghost"
-                      onClick={async () => {
-                        try {
-                          toast.show("Verificando endpoint...", "info", 2000);
-                          const res = await api.endpoints.check(e.id);
-                          if (res?.ok) {
-                            toast.show("✓ Endpoint funcionando corretamente", "success");
-                          } else {
-                            // Mensagem de erro detalhada
-                            const errorMsg = res?.error ?? "Erro desconhecido";
-                            const wasDeactivated = res?.wasDeactivated;
+        <>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "var(--space-3)" }}>
+            O sistema testa na ordem abaixo. O primeiro checkout ativo recebe o tráfego.
+          </p>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="endpoints-list"
+          >
+            {product.endpoints.map((e, index) => (
+              <motion.div key={e.id} variants={item}>
+                <motion.div
+                  className={`card endpoint-card ${!e.isActive ? "endpoint-card--inactive" : ""}`}
+                  whileHover={{ y: -2 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="endpoint-card-content">
+                    {/* Número da ordem */}
+                    <div className="endpoint-order">
+                      <span className="endpoint-order-number">{index + 1}º</span>
+                      <div className="endpoint-order-arrows">
+                        <button
+                          type="button"
+                          className="btn-arrow"
+                          disabled={index === 0}
+                          onClick={() => moveUp(e, index)}
+                          title="Mover para cima"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-arrow"
+                          disabled={index === product.endpoints.length - 1}
+                          onClick={() => moveDown(e, index)}
+                          title="Mover para baixo"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
 
-                            if (wasDeactivated) {
-                              toast.show(`✗ ${errorMsg}. Endpoint foi desativado.`, "error", 6000);
+                    <div className="endpoint-card-info">
+                      <h3 className="endpoint-url">{e.url}</h3>
+                      <p className="endpoint-meta">
+                        <span className={e.isActive ? "status-active" : "status-inactive"}>
+                          {e.isActive ? "● Ativo" : "○ Inativo"}
+                        </span>
+                        {e.lastError && (
+                          <span className="endpoint-error" title={e.lastError}>
+                            {" "}· Erro: {e.lastError.slice(0, 50)}{e.lastError.length > 50 ? "..." : ""}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="endpoint-card-actions">
+                      <button
+                        className="btn btn--ghost"
+                        onClick={async () => {
+                          try {
+                            toast.show("Verificando endpoint...", "info", 2000);
+                            const res = await api.endpoints.check(e.id);
+                            if (res?.ok) {
+                              toast.show("✓ Endpoint funcionando corretamente", "success");
                             } else {
-                              toast.show(`✗ ${errorMsg}`, "error", 5000);
+                              const errorMsg = res?.error ?? "Erro desconhecido";
+                              const wasDeactivated = res?.wasDeactivated;
+
+                              if (wasDeactivated) {
+                                toast.show(`✗ ${errorMsg}. Endpoint foi desativado.`, "error", 6000);
+                              } else {
+                                toast.show(`✗ ${errorMsg}`, "error", 5000);
+                              }
                             }
+                            fetchProduct();
+                          } catch (err) {
+                            toast.show("Erro de conexão ao verificar endpoint", "error");
+                            console.error(err);
                           }
-                          fetchProduct();
-                        } catch (err) {
-                          toast.show("Erro de conexão ao verificar endpoint", "error");
-                          console.error(err);
-                        }
-                      }}
-                    >
-                      Verificar
-                    </button>
-                    <button
-                      className="btn btn--ghost"
-                      onClick={() => setEditEndpoint({ id: e.id, url: e.url, priority: e.priority })}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="btn btn--ghost btn--danger-text"
-                      onClick={async () => {
-                        if (!confirm("Remover endpoint?")) return;
-                        try {
-                          await api.endpoints.delete(e.id);
-                          toast.show("Endpoint removido", "success");
-                          fetchProduct();
-                        } catch (err) {
-                          toast.show("Erro ao remover", "error");
-                        }
-                      }}
-                    >
-                      Excluir
-                    </button>
+                        }}
+                      >
+                        Verificar
+                      </button>
+                      <button
+                        className="btn btn--ghost"
+                        onClick={() => setEditEndpoint({ id: e.id, url: e.url, priority: e.priority })}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn--ghost btn--danger-text"
+                        onClick={async () => {
+                          if (!confirm("Remover endpoint?")) return;
+                          try {
+                            await api.endpoints.delete(e.id);
+                            toast.show("Endpoint removido", "success");
+                            fetchProduct();
+                          } catch (err) {
+                            toast.show("Erro ao remover", "error");
+                          }
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          ))}
-        </motion.div>
+            ))}
+          </motion.div>
+        </>
       )}
 
       {/* Modal de Editar Endpoint */}
@@ -342,7 +408,7 @@ export function ProductDetail() {
                 className="btn btn--primary"
                 onClick={async () => {
                   try {
-                    await api.endpoints.update(editEndpoint.id, { url: editEndpoint.url, priority: editEndpoint.priority });
+                    await api.endpoints.update(editEndpoint.id, { url: editEndpoint.url });
                     toast.show("Endpoint atualizado", "success");
                     setEditEndpoint(null);
                     fetchProduct();
@@ -357,12 +423,8 @@ export function ProductDetail() {
           }
         >
           <div className="input-group">
-            <label>URL</label>
+            <label>URL do checkout</label>
             <input value={editEndpoint.url} onChange={(e) => setEditEndpoint({ ...editEndpoint, url: e.target.value })} />
-          </div>
-          <div className="input-group">
-            <label>Prioridade</label>
-            <input type="number" value={editEndpoint.priority} onChange={(e) => setEditEndpoint({ ...editEndpoint, priority: Number(e.target.value) })} />
           </div>
         </Modal>
       )}
