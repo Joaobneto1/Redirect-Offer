@@ -32,12 +32,12 @@ const item = {
 
 export function Links() {
   const [links, setLinks] = useState<SmartLink[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<SmartLink | null>(null);
   const [slug, setSlug] = useState("");
-  const [groupId, setGroupId] = useState("");
+  const [campaignId, setCampaignId] = useState("");
   const [fallbackUrl, setFallbackUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function Links() {
     Promise.all([api.smartLinks.list(), api.campaigns.list()])
       .then(([l, c]) => {
         setLinks(l);
-        setGroups(c);
+        setCampaigns(c);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -60,19 +60,19 @@ export function Links() {
   useEffect(() => {
     if (editing) {
       setSlug(editing.slug);
-      setGroupId(editing.campaignId);
+      setCampaignId(editing.campaignId);
       setFallbackUrl(editing.fallbackUrl ?? "");
     } else if (!modal) {
       setSlug("");
-      setGroupId(groups[0]?.id ?? "");
+      setCampaignId(campaigns[0]?.id ?? "");
       setFallbackUrl("");
     }
-  }, [editing, modal, groups]);
+  }, [editing, modal, campaigns]);
 
   const openCreate = () => {
     setEditing(null);
     setSlug("");
-    setGroupId(groups[0]?.id ?? "");
+    setCampaignId(campaigns[0]?.id ?? "");
     setFallbackUrl("");
     setError(null);
     setModal(true);
@@ -102,10 +102,10 @@ export function Links() {
       if (editing) {
         await api.smartLinks.update(editing.id, payload);
       } else {
-        if (!groupId) throw new Error("Selecione uma campanha");
+        if (!campaignId) throw new Error("Selecione uma campanha");
         await api.smartLinks.create({
           ...payload,
-          campaignId: groupId,
+          campaignId: campaignId,
         });
       }
       closeModal();
@@ -147,7 +147,7 @@ export function Links() {
             type="button"
             className="btn btn--primary"
             onClick={openCreate}
-            disabled={groups.length === 0}
+            disabled={campaigns.length === 0}
           >
             Novo link
           </button>
@@ -167,7 +167,7 @@ export function Links() {
               type="submit"
               form="form-link"
               className="btn btn--primary"
-              disabled={submitting || !slug.trim() || (!editing && !groupId)}
+              disabled={submitting || !slug.trim() || (!editing && !campaignId)}
             >
               {submitting ? "Salvando…" : editing ? "Salvar" : "Criar"}
             </button>
@@ -196,13 +196,13 @@ export function Links() {
               <label htmlFor="link-campaign">Campanha</label>
               <select
                 id="link-campaign"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
               >
                 <option value="">Selecione uma campanha</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>
@@ -233,16 +233,16 @@ export function Links() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="card"
-          style={{ padding: "var(--space-16)" }}
+          style={{ padding: "var(--space-12)" }}
         >
           <div className="empty-state">
             <h3>Nenhum link</h3>
             <p>
-              {groups.length === 0
-                ? "Crie um produto e um grupo de checkout antes de adicionar links."
+              {campaigns.length === 0
+                ? "Crie uma campanha antes de adicionar links."
                 : "Crie um link para usar em campanhas (/go/:slug)."}
             </p>
-            {groups.length > 0 && (
+            {campaigns.length > 0 && (
               <button type="button" className="btn btn--primary" onClick={openCreate}>
                 Novo link
               </button>
@@ -251,6 +251,7 @@ export function Links() {
         </motion.div>
       ) : (
         <motion.div className="card">
+          {/* Desktop: Tabela */}
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -269,10 +270,7 @@ export function Links() {
                 style={{ display: "table-row-group" }}
               >
                 {links.map((l) => (
-                  <motion.tr
-                    key={l.id}
-                    variants={item}
-                  >
+                  <motion.tr key={l.id} variants={item}>
                     <td>
                       <span className="mono">{l.slug}</span>
                     </td>
@@ -321,6 +319,75 @@ export function Links() {
               </motion.tbody>
             </table>
           </div>
+
+          {/* Mobile: Cards */}
+          <motion.div
+            className="links-mobile-list"
+            variants={container}
+            initial="hidden"
+            animate="show"
+            style={{ padding: "var(--space-4)" }}
+          >
+            {links.map((l) => (
+              <motion.div key={l.id} className="link-card-mobile" variants={item}>
+                <div className="link-card-mobile-row">
+                  <span className="link-card-mobile-label">Slug</span>
+                  <span className="link-card-mobile-value mono">{l.slug}</span>
+                </div>
+                <div className="link-card-mobile-row">
+                  <span className="link-card-mobile-label">URL</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <a
+                      href={`${goBase}/${l.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link-url"
+                    >
+                      /go/{l.slug}
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      style={{ fontSize: "0.75rem", padding: "var(--space-1) var(--space-2)", minHeight: "auto" }}
+                      onClick={() => copyUrl(l.slug)}
+                    >
+                      {copied === l.slug ? "✓" : "Copiar"}
+                    </button>
+                  </div>
+                </div>
+                <div className="link-card-mobile-row">
+                  <span className="link-card-mobile-label">Campanha</span>
+                  <span className="link-card-mobile-value">{l.campaign.name}</span>
+                </div>
+                {l.fallbackUrl && (
+                  <div className="link-card-mobile-row">
+                    <span className="link-card-mobile-label">Fallback</span>
+                    <span className="link-card-mobile-value" style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                      {l.fallbackUrl}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--border-subtle)" }}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    style={{ flex: 1, fontSize: "0.85rem" }}
+                    onClick={() => openEdit(l)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    style={{ flex: 1, color: "var(--danger)", fontSize: "0.85rem" }}
+                    onClick={() => handleDelete(l)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </motion.div>
       )}
     </>

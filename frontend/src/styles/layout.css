@@ -2,9 +2,10 @@
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
+/* ===== SIDEBAR ===== */
 .sidebar {
   position: fixed;
   left: 0;
@@ -17,45 +18,14 @@
   display: flex;
   flex-direction: column;
   z-index: 100;
-  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
 }
 
-@media (max-width: 768px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    transform: translateX(-100%);
-    box-shadow: none;
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.4);
-  }
-
-  .sidebar-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 99;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-  }
-
-  .sidebar-overlay.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .main {
-    margin-left: 0;
-    padding: var(--space-4) var(--space-4) var(--space-10);
-  }
+.sidebar-overlay {
+  display: none;
 }
 
+/* ===== LOGO ===== */
 .logo {
   display: flex;
   align-items: center;
@@ -82,13 +52,38 @@
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
-/* Mobile: botão menu */
+/* ===== MOBILE TOPBAR ===== */
+.mobile-topbar {
+  display: none;
+}
+
+.mobile-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+.mobile-logo:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.mobile-logo .logo-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.mobile-topbar-spacer {
+  width: 44px;
+}
+
+/* ===== MENU TOGGLE (hamburger) ===== */
 .menu-toggle {
   display: none;
-  position: fixed;
-  top: var(--space-4);
-  left: var(--space-4);
-  z-index: 101;
   width: 44px;
   height: 44px;
   min-width: 44px;
@@ -112,12 +107,7 @@
   outline-offset: 2px;
 }
 
-@media (max-width: 768px) {
-  .menu-toggle {
-    display: inline-flex;
-  }
-}
-
+/* ===== NAV ===== */
 .nav {
   flex: 1;
   display: flex;
@@ -150,6 +140,7 @@
   text-decoration: none;
 }
 
+/* ===== SIDEBAR FOOTER ===== */
 .sidebar-footer {
   padding: var(--space-4);
   border-top: 1px solid var(--border-subtle);
@@ -204,22 +195,111 @@
   50% { opacity: 0.5; }
 }
 
+/* ===== MAIN CONTENT ===== */
 .main {
   grid-column: 2;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--space-8) var(--space-10) var(--space-16);
   margin-left: 260px;
-}
-
-@media (max-width: 1024px) {
-  .main {
-    padding: var(--space-6) var(--space-6) var(--space-12);
-  }
 }
 
 .main-inner {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 1100px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ===== TABLET (768px - 1023px) ===== */
+@media (max-width: 1023px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: 60px;
+    padding: 0 var(--space-4);
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .main {
+    grid-column: 1;
+    margin-left: 0;
+    padding: var(--space-6) var(--space-6) var(--space-12);
+  }
+}
+
+/* ===== MOBILE (até 767px) ===== */
+@media (max-width: 767px) {
+  .mobile-topbar {
+    height: 56px;
+    padding: 0 var(--space-3);
+  }
+
+  .main {
+    padding: var(--space-4) var(--space-4) var(--space-10);
+  }
+
+  .main-inner {
+    gap: var(--space-4);
+  }
+
+  .sidebar {
+    width: 280px;
+  }
+
+  .menu-toggle {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .mobile-topbar-spacer {
+    width: 40px;
+  }
+}
+
+/* ===== MOBILE SMALL (até 400px) ===== */
+@media (max-width: 400px) {
+  .main {
+    padding: var(--space-3) var(--space-3) var(--space-8);
+  }
+
+  .mobile-logo .logo-text {
+    font-size: 1rem;
+  }
 }

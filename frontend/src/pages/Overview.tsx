@@ -11,6 +11,12 @@ type OverviewStats = {
   activeEndpoints: number;
 };
 
+type LinkItem = {
+  id: string;
+  slug: string;
+  campaign: { name: string };
+};
+
 const container = {
   hidden: { opacity: 0 },
   show: {
@@ -26,7 +32,7 @@ const item = {
 
 export function Overview() {
   const [stats, setStats] = useState<OverviewStats | null>(null);
-  const [links, setLinks] = useState<Array<{ id: string; slug: string; campaign: { name: string } }>>([]);
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,34 +68,33 @@ export function Overview() {
         initial="hidden"
         animate="show"
         className="steps-guide"
-        style={{ marginBottom: "var(--space-8)" }}
       >
         <h3>Passo a passo</h3>
         <ol className="steps-list">
-              <li>
-                <span className="step-num">1</span>
-                <span className="step-text">
-                  <strong>Campanha</strong> — Crie uma campanha em Campanhas. Ex.: "Black Friday".
-                </span>
-              </li>
-              <li>
-                <span className="step-num">2</span>
-                <span className="step-text">
-                  <strong>Endpoints</strong> — Dentro da campanha, adicione endpoints (URLs de checkout: Hotmart, Eduzz, etc.). Configure prioridade se necessário.
-                </span>
-              </li>
-              <li>
-                <span className="step-num">3</span>
-                <span className="step-text">
-                  Use <strong>Verificar</strong> para testar cada endpoint; o sistema faz validação profunda (URL final e HTML) para detectar ofertas inativas.
-                </span>
-              </li>
-              <li>
-                <span className="step-num">4</span>
-                <span className="step-text">
-                  <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tentará os endpoints configurados na campanha (ordem por prioridade/rotação). Se todos falharem, mostramos uma página de fallback.
-                </span>
-              </li>
+          <li>
+            <span className="step-num">1</span>
+            <span className="step-text">
+              <strong>Campanha</strong> — Crie uma campanha em Campanhas. Ex.: "Black Friday".
+            </span>
+          </li>
+          <li>
+            <span className="step-num">2</span>
+            <span className="step-text">
+              <strong>Endpoints</strong> — Dentro da campanha, adicione endpoints (URLs de checkout: Hotmart, Eduzz, etc.). Configure prioridade se necessário.
+            </span>
+          </li>
+          <li>
+            <span className="step-num">3</span>
+            <span className="step-text">
+              Use <strong>Verificar</strong> para testar cada endpoint; o sistema faz validação profunda (URL final e HTML) para detectar ofertas inativas.
+            </span>
+          </li>
+          <li>
+            <span className="step-num">4</span>
+            <span className="step-text">
+              <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tentará os endpoints configurados na campanha (ordem por prioridade/rotação). Se todos falharem, mostramos uma página de fallback.
+            </span>
+          </li>
         </ol>
       </motion.section>
 
@@ -98,7 +103,6 @@ export function Overview() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="page-desc"
-          style={{ marginTop: "var(--space-8)" }}
         >
           Carregando…
         </motion.p>
@@ -107,17 +111,11 @@ export function Overview() {
           variants={container}
           initial="hidden"
           animate="show"
-          style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}
+          style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}
         >
+          {/* Cards de métricas */}
           <motion.section variants={item}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                gap: "var(--space-4)",
-              }}
-              className="overview-cards"
-            >
+            <div className="overview-cards">
               {cards.map((c) => {
                 const CardInner = (
                   <motion.div
@@ -125,18 +123,20 @@ export function Overview() {
                     whileHover={{ y: -2 }}
                     transition={{ duration: 0.2 }}
                     style={{
-                      padding: "var(--space-6)",
+                      padding: "var(--space-5)",
                       display: "flex",
                       flexDirection: "column",
                       gap: "var(--space-2)",
+                      height: "100%",
                     }}
                   >
                     <span
                       style={{
-                        fontSize: "0.8rem",
+                        fontSize: "0.75rem",
                         color: "var(--text-muted)",
                         textTransform: "uppercase",
                         letterSpacing: "0.06em",
+                        fontWeight: 600,
                       }}
                     >
                       {c.label}
@@ -145,7 +145,7 @@ export function Overview() {
                       style={{
                         fontFamily: "var(--font-display)",
                         fontWeight: 700,
-                        fontSize: "1.75rem",
+                        fontSize: "clamp(1.5rem, 5vw, 2rem)",
                         display: "flex",
                         alignItems: "center",
                         gap: "var(--space-2)",
@@ -181,6 +181,7 @@ export function Overview() {
             </div>
           </motion.section>
 
+          {/* Links recentes */}
           <motion.section variants={item}>
             <div className="card">
               <div className="card-header">
@@ -190,42 +191,73 @@ export function Overview() {
                 </Link>
               </div>
               <div className="card-body" style={{ paddingTop: 0 }}>
-                  {links.length === 0 ? (
-                    <p className="page-desc" style={{ margin: 0 }}>
-                      Nenhum link criado. Crie um em Campanhas → Endpoints → Links.
-                    </p>
-                  ) : (
-                  <div className="table-wrap">
-                    <table className="table">
-                      <thead>
-                      <tr>
-                        <th>Slug</th>
-                        <th>Campanha</th>
-                        <th>URL</th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                        {links.map((l) => (
-                        <tr key={l.id}>
-                          <td>
-                            <span className="mono">{l.slug}</span>
-                          </td>
-                          <td>{l.campaign?.name ?? "—"}</td>
-                          <td>
+                {links.length === 0 ? (
+                  <p className="page-desc" style={{ margin: 0 }}>
+                    Nenhum link criado. Crie um em Campanhas → Endpoints → Links.
+                  </p>
+                ) : (
+                  <>
+                    {/* Desktop: Tabela */}
+                    <div className="table-wrap">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Slug</th>
+                            <th>Campanha</th>
+                            <th>URL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {links.map((l) => (
+                            <tr key={l.id}>
+                              <td>
+                                <span className="mono">{l.slug}</span>
+                              </td>
+                              <td>{l.campaign?.name ?? "—"}</td>
+                              <td>
+                                <a
+                                  href={`${goBase}/${l.slug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="link-url"
+                                >
+                                  /go/{l.slug}
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile: Cards */}
+                    <div className="links-mobile-list">
+                      {links.map((l) => (
+                        <div key={l.id} className="link-card-mobile">
+                          <div className="link-card-mobile-row">
+                            <span className="link-card-mobile-label">Slug</span>
+                            <span className="link-card-mobile-value mono">{l.slug}</span>
+                          </div>
+                          <div className="link-card-mobile-row">
+                            <span className="link-card-mobile-label">Campanha</span>
+                            <span className="link-card-mobile-value">{l.campaign?.name ?? "—"}</span>
+                          </div>
+                          <div className="link-card-mobile-row">
+                            <span className="link-card-mobile-label">URL</span>
                             <a
                               href={`${goBase}/${l.slug}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="link-url"
+                              style={{ textAlign: "right" }}
                             >
                               /go/{l.slug}
                             </a>
-                          </td>
-                        </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
