@@ -44,6 +44,7 @@ export function ProductDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editEndpoint, setEditEndpoint] = useState<{ id: string; url: string; priority: number } | null>(null);
+  const [settingsModal, setSettingsModal] = useState(false);
 
   const fetchProduct = () => {
     if (!id) return;
@@ -84,6 +85,18 @@ export function ProductDetail() {
     }
   };
 
+  const handleSaveSettings = async () => {
+    try {
+      await api.campaigns.update(id!, { autoCheckEnabled: autoCheckEnabledState, autoCheckInterval: autoCheckIntervalState });
+      toast.show("Configurações salvas", "success");
+      setSettingsModal(false);
+      fetchProduct();
+    } catch (err) {
+      toast.show("Erro ao salvar", "error");
+      console.error(err);
+    }
+  };
+
   if (!id) return null;
   if (loading || !product) {
     return <p className="page-desc">Carregando…</p>;
@@ -102,38 +115,13 @@ export function ProductDetail() {
         title={product.name}
         desc="Endpoints de checkout e links associados."
         action={
-          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-            <label style={{ color: "var(--text-muted)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <input
-                type="checkbox"
-                checked={autoCheckEnabledState}
-                onChange={(e) => setAutoCheckEnabledState(e.target.checked)}
-              />
-              Auto-check
-            </label>
-            <label style={{ color: "var(--text-muted)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              Intervalo (s):
-              <input
-                type="number"
-                min={5}
-                value={autoCheckIntervalState}
-                onChange={(e) => setAutoCheckIntervalState(Math.max(5, Number(e.target.value || 60)))}
-                style={{ width: 80, padding: "0.25rem", borderRadius: 6, border: "1px solid var(--border-default)", background: "var(--bg-raised)", color: "var(--text-primary)" }}
-              />
-            </label>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button
               type="button"
               className="btn btn--secondary"
-              onClick={async () => {
-                try {
-                  await api.campaigns.update(id!, { autoCheckEnabled: autoCheckEnabledState, autoCheckInterval: autoCheckIntervalState });
-                  fetchProduct();
-                } catch (err) {
-                  console.error(err);
-                }
-              }}
+              onClick={() => setSettingsModal(true)}
             >
-              Salvar
+              Configurações
             </button>
             <button type="button" className="btn btn--primary" onClick={() => setModal(true)}>
               Novo endpoint
@@ -142,6 +130,49 @@ export function ProductDetail() {
         }
       />
 
+      {/* Modal de Configurações */}
+      <Modal
+        open={settingsModal}
+        onClose={() => setSettingsModal(false)}
+        title="Configurações da campanha"
+        footer={
+          <>
+            <button type="button" className="btn btn--secondary" onClick={() => setSettingsModal(false)}>
+              Cancelar
+            </button>
+            <button type="button" className="btn btn--primary" onClick={handleSaveSettings}>
+              Salvar
+            </button>
+          </>
+        }
+      >
+        <div className="input-group">
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={autoCheckEnabledState}
+              onChange={(e) => setAutoCheckEnabledState(e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+            <span>Habilitar verificação automática</span>
+          </label>
+        </div>
+        <div className="input-group">
+          <label htmlFor="auto-interval">Intervalo de verificação (segundos)</label>
+          <input
+            id="auto-interval"
+            type="number"
+            min={5}
+            value={autoCheckIntervalState}
+            onChange={(e) => setAutoCheckIntervalState(Math.max(5, Number(e.target.value || 60)))}
+          />
+          <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
+            Mínimo: 5 segundos
+          </p>
+        </div>
+      </Modal>
+
+      {/* Modal de Novo Endpoint */}
       <Modal
         open={modal}
         onClose={() => {
@@ -199,12 +230,13 @@ export function ProductDetail() {
         </form>
       </Modal>
 
+      {/* Lista de endpoints */}
       {product.endpoints.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="card"
-          style={{ padding: "var(--space-16)" }}
+          style={{ padding: "var(--space-12)" }}
         >
           <div className="empty-state">
             <h3>Nenhum endpoint</h3>
@@ -219,37 +251,48 @@ export function ProductDetail() {
           variants={container}
           initial="hidden"
           animate="show"
-          style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+          className="endpoints-list"
         >
           {product.endpoints.map((e) => (
             <motion.div key={e.id} variants={item}>
               <motion.div
-                className="card"
+                className="card endpoint-card"
                 whileHover={{ y: -2 }}
                 transition={{ duration: 0.2 }}
-                style={{ padding: "var(--space-5) var(--space-6)" }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 600 }}>
-                      {e.url}
-                    </h3>
-                    <p style={{ margin: "var(--space-1) 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                      Prioridade: {e.priority} · Status: {e.isActive ? "Ativo" : "Inativo"}
+                <div className="endpoint-card-content">
+                  <div className="endpoint-card-info">
+                    <h3 className="endpoint-url">{e.url}</h3>
+                    <p className="endpoint-meta">
+                      Prioridade: {e.priority} ·
+                      <span className={e.isActive ? "status-active" : "status-inactive"}>
+                        {e.isActive ? " Ativo" : " Inativo"}
+                      </span>
                     </p>
                   </div>
-                  <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+                  <div className="endpoint-card-actions">
                     <button
                       className="btn btn--ghost"
                       onClick={async () => {
                         try {
-                          toast.show("Verificando endpoint...", "info");
+                          toast.show("Verificando endpoint...", "info", 2000);
                           const res = await api.endpoints.check(e.id);
-                          if (res?.ok) toast.show("Endpoint OK", "success");
-                          else toast.show(`Falha: ${res?.error ?? "erro"}`, "error");
+                          if (res?.ok) {
+                            toast.show("✓ Endpoint funcionando corretamente", "success");
+                          } else {
+                            // Mensagem de erro detalhada
+                            const errorMsg = res?.error ?? "Erro desconhecido";
+                            const wasDeactivated = res?.wasDeactivated;
+
+                            if (wasDeactivated) {
+                              toast.show(`✗ ${errorMsg}. Endpoint foi desativado.`, "error", 6000);
+                            } else {
+                              toast.show(`✗ ${errorMsg}`, "error", 5000);
+                            }
+                          }
                           fetchProduct();
                         } catch (err) {
-                          toast.show("Erro ao verificar endpoint", "error");
+                          toast.show("Erro de conexão ao verificar endpoint", "error");
                           console.error(err);
                         }
                       }}
@@ -263,8 +306,7 @@ export function ProductDetail() {
                       Editar
                     </button>
                     <button
-                      className="btn btn--ghost"
-                      style={{ color: "var(--danger)" }}
+                      className="btn btn--ghost btn--danger-text"
                       onClick={async () => {
                         if (!confirm("Remover endpoint?")) return;
                         try {
@@ -278,7 +320,6 @@ export function ProductDetail() {
                     >
                       Excluir
                     </button>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>→</span>
                   </div>
                 </div>
               </motion.div>
@@ -286,6 +327,8 @@ export function ProductDetail() {
           ))}
         </motion.div>
       )}
+
+      {/* Modal de Editar Endpoint */}
       {editEndpoint && (
         <Modal
           open={!!editEndpoint}
