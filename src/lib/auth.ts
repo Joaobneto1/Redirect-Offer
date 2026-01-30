@@ -10,11 +10,11 @@ export interface JwtPayload {
 
 const DEFAULT_EXPIRES = "7d";
 
-export function signToken(payload: Omit<JwtPayload, "iat" | "exp">, secret: string, expires = DEFAULT_EXPIRES): string {
+export function signToken(payload: Omit<JwtPayload, "iat" | "exp">, secret: string, expires: string = DEFAULT_EXPIRES): string {
   return jwt.sign(
     { sub: payload.sub, email: payload.email },
     secret,
-    { expiresIn: expires }
+    { expiresIn: expires as jwt.SignOptions["expiresIn"] }
   );
 }
 

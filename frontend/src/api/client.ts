@@ -50,11 +50,10 @@ export const api = {
 
   overview: () =>
     request<{
-      products: number;
-      groups: number;
-      checkouts: number;
-      smartLinks: number;
-      activeCheckouts: number;
+      campaigns: number;
+      endpoints: number;
+      links: number;
+      activeEndpoints: number;
     }>(`${BASE}/api/overview`),
 
   campaigns: {
@@ -87,7 +86,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    update: (id: string, body: { name?: string }) =>
+    update: (id: string, body: { name?: string; autoCheckEnabled?: boolean; autoCheckInterval?: number }) =>
       request<{ id: string; name: string }>(`${BASE}/api/campaigns/${id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -102,7 +101,7 @@ export const api = {
         body: JSON.stringify(body),
       }),
     check: (id: string) =>
-      request<{ ok: boolean; error?: string; status?: number; inactiveReason?: string }>(`${BASE}/api/endpoints/${id}/check`, {
+      request<{ ok: boolean; error?: string; status?: number; inactiveReason?: string; reason?: string; wasDeactivated?: boolean }>(`${BASE}/api/endpoints/${id}/check`, {
         method: "POST",
       }),
     update: (id: string, body: { url?: string; priority?: number; isActive?: boolean }) =>
@@ -279,7 +278,8 @@ export const api = {
       }>(`${BASE}/api/smart-links/check-slug/${encodeURIComponent(slug)}`),
     create: (body: {
       slug: string;
-      campaignId: string;
+      campaignId?: string;
+      groupId?: string;
       fallbackUrl?: string | null;
     }) =>
       request<{ id: string; slug: string; campaignId: string; fallbackUrl: string | null }>(
