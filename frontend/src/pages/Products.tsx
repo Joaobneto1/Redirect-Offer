@@ -62,6 +62,27 @@ export function Products() {
     }
   };
 
+  const handleDelete = async (campaign: Campaign, e: React.MouseEvent) => {
+    e.preventDefault(); // Não navegar para a campanha
+    e.stopPropagation();
+    
+    const hasContent = campaign._count.endpoints > 0 || campaign._count.links > 0;
+    const confirmMsg = hasContent
+      ? `Excluir "${campaign.name}"?\n\nIsso também excluirá:\n- ${campaign._count.endpoints} endpoint(s)\n- ${campaign._count.links} link(s)`
+      : `Excluir "${campaign.name}"?`;
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await api.campaigns.delete(campaign.id);
+      toast.show("Campanha excluída", "success");
+      fetchProducts();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao excluir";
+      toast.show(`Erro: ${msg}`, "error");
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -77,7 +98,7 @@ export function Products() {
       <Modal
         open={modal}
         onClose={() => { setModal(false); setError(null); setName(""); }}
-        title="Novo produto"
+        title="Nova campanha"
         footer={
           <>
             <button
@@ -139,30 +160,36 @@ export function Products() {
           variants={container}
           initial="hidden"
           animate="show"
-          style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+          style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}
         >
           {list.map((p) => (
             <motion.div key={p.id} variants={item}>
-              <Link to={`/campaigns/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                <motion.div
-                  className="card"
-                  whileHover={{ y: -2 }}
-                  transition={{ duration: 0.2 }}
-                  style={{ padding: "var(--space-5) var(--space-6)" }}
+              <motion.div
+                className="card campaign-card"
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link 
+                  to={`/campaigns/${p.id}`} 
+                  className="campaign-card-link"
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontFamily: "var(--font-display)", fontWeight: 600 }}>
-                        {p.name}
-                      </h3>
-                      <p style={{ margin: "var(--space-1) 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-                        {p._count.endpoints} endpoint{p._count.endpoints !== 1 ? "s" : ""} · {p._count.links} link{p._count.links !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>→</span>
+                  <div className="campaign-card-info">
+                    <h3 className="campaign-card-title">{p.name}</h3>
+                    <p className="campaign-card-meta">
+                      {p._count.endpoints} endpoint{p._count.endpoints !== 1 ? "s" : ""} · {p._count.links} link{p._count.links !== 1 ? "s" : ""}
+                    </p>
                   </div>
-                </motion.div>
-              </Link>
+                  <span className="campaign-card-arrow">→</span>
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--danger-text campaign-delete-btn"
+                  onClick={(e) => handleDelete(p, e)}
+                  title="Excluir campanha"
+                >
+                  Excluir
+                </button>
+              </motion.div>
             </motion.div>
           ))}
         </motion.div>

@@ -663,6 +663,85 @@
   color: var(--danger) !important;
 }
 
+/* ===== CAMPAIGN CARDS ===== */
+.campaign-card {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+}
+
+.campaign-card-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+.campaign-card-link:hover {
+  background: var(--bg-surface-hover);
+  text-decoration: none;
+}
+
+.campaign-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.campaign-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.campaign-card-meta {
+  margin: var(--space-1) 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.campaign-card-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin-left: var(--space-4);
+}
+
+.campaign-delete-btn {
+  padding: var(--space-3) var(--space-4);
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0;
+  height: 100%;
+}
+
+.campaign-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@media (max-width: 767px) {
+  .campaign-card-link {
+    padding: var(--space-4);
+  }
+
+  .campaign-card-title {
+    font-size: 0.95rem;
+  }
+
+  .campaign-card-meta {
+    font-size: 0.8rem;
+  }
+
+  .campaign-delete-btn {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.8rem;
+  }
+}
+
 /* ===== RESPONSIVE: TABLET (Endpoints) ===== */
 @media (max-width: 1023px) {
   .endpoint-card-content {

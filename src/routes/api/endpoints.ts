@@ -45,7 +45,7 @@ router.post("/:id/check", async (req: Request, res: Response) => {
 
     // ===== FALHA =====
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "?"}`;
-    
+
     // Determinar se deve desativar imediatamente
     // INACTIVE_OFFER = checkout encerrado/inativo → desativar imediatamente
     // Outros erros (TIMEOUT, NETWORK, etc.) → usar threshold
@@ -82,10 +82,10 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       consecutiveFailures: updated.consecutiveFailures,
       wasDeactivated,
       // Informar que foi desativado imediatamente por ser oferta inativa
-      reason: shouldDeactivateImmediately 
-        ? "Desativado automaticamente: oferta encerrada" 
-        : wasDeactivated 
-          ? `Desativado após ${config.FAILURE_THRESHOLD} falhas` 
+      reason: shouldDeactivateImmediately
+        ? "Desativado automaticamente: oferta encerrada"
+        : wasDeactivated
+          ? `Desativado após ${config.FAILURE_THRESHOLD} falhas`
           : undefined,
     });
   } catch (err) {
