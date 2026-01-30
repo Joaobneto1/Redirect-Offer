@@ -19,7 +19,7 @@ const HOTMART_INACTIVE_URL_PATTERNS: RegExp[] = [
   /pay\.hotmart\.com\/error/i,
   /hotmart\.com\/error\?/i,
   /errorMessage=/i,
-  
+
   // Outros padrões de inatividade
   /hotmart\.com.*(unavailable|closed|expired|encerrad|indisponivel)/i,
   /pay\.hotmart\.com.*(unavailable|closed|expired)/i,
@@ -53,7 +53,7 @@ const HOTMART_INACTIVE_HTML_PHRASES: string[] = [
   "link expirado",
   "promoção encerrada",
   "promocao encerrada",
-  
+
   // Inglês
   "sales of this product are temporarily closed",
   "thank you for your interest, but sales",
@@ -147,7 +147,7 @@ export function checkHtmlInactive(html: string): InactiveDetectionResult {
   // Checkout inativo: geralmente < 10KB de HTML
   if (detectPlatform(body) === "hotmart" && body.length < 15000) {
     // Verificar se NÃO tem elementos de checkout (form, input de cartão, etc.)
-    const hasCheckoutForm = 
+    const hasCheckoutForm =
       bodyLower.includes('name="cardnumber"') ||
       bodyLower.includes('name="card_number"') ||
       bodyLower.includes('payment-method') ||
@@ -187,7 +187,7 @@ export function detectPlatform(urlOrHtml: string): "hotmart" | "eduzz" | "other"
 export function isValidHotmartCheckoutUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    
+
     // Deve ser pay.hotmart.com
     if (!parsed.hostname.includes("pay.hotmart.com")) {
       return false;

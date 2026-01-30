@@ -21,12 +21,12 @@ export interface ResolveSmartLinkInput {
  * - Prioridade 0 = primeiro
  * - Prioridade 1 = segundo
  * - etc.
- * 
+ *
  * Se prioridades iguais, ordena por data de criação (mais antigo primeiro).
  */
 function sortEndpoints(endpoints: Endpoint[]): Endpoint[] {
   const active = endpoints.filter((e) => e.isActive);
-  
+
   return [...active].sort((a, b) => {
     // Primeiro por prioridade (menor = primeiro)
     if (a.priority !== b.priority) {
@@ -51,7 +51,7 @@ function appendQueryParams(
 
   try {
     const url = new URL(baseUrl);
-    
+
     // Adicionar cada parâmetro (sobrescreve se já existir)
     for (const [key, value] of Object.entries(params)) {
       if (key && value !== undefined && value !== null) {
@@ -67,7 +67,7 @@ function appendQueryParams(
       .filter(([k, v]) => k && v !== undefined && v !== null)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join("&");
-    
+
     return queryString ? `${baseUrl}${separator}${queryString}` : baseUrl;
   }
 }
@@ -168,16 +168,16 @@ export async function resolveSmartLink(
   // Tentar cada endpoint na ordem
   for (const endpoint of ordered) {
     console.log(`[Selector] Verificando endpoint ${endpoint.id}: ${endpoint.url}`);
-    
+
     const result = await checkCheckoutHealth(endpoint.url, healthConfig);
 
     if (result.ok) {
       await recordSuccess(endpoint.id);
-      
+
       // Anexar query params ao URL do checkout
       const finalUrl = appendQueryParams(endpoint.url, queryParams);
       console.log(`[Selector] Redirecionando para: ${finalUrl}`);
-      
+
       return { type: "redirect", url: finalUrl, endpointId: endpoint.id };
     }
 

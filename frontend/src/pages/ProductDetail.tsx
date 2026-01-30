@@ -347,9 +347,12 @@ export function ProductDetail() {
                               toast.show("✓ Endpoint funcionando corretamente", "success");
                             } else {
                               const errorMsg = res?.error ?? "Erro desconhecido";
-                              const wasDeactivated = res?.wasDeactivated;
+                              const reason = res?.reason;
 
-                              if (wasDeactivated) {
+                              if (reason) {
+                                // Mostrar razão da desativação
+                                toast.show(`✗ ${errorMsg}. ${reason}`, "error", 6000);
+                              } else if (res?.wasDeactivated) {
                                 toast.show(`✗ ${errorMsg}. Endpoint foi desativado.`, "error", 6000);
                               } else {
                                 toast.show(`✗ ${errorMsg}`, "error", 5000);

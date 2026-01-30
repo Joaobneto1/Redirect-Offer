@@ -25,6 +25,7 @@ router.post("/:id/check", async (req: Request, res: Response) => {
     });
 
     if (result.ok) {
+      // Sucesso - ativar e limpar erros
       await prisma.endpoint.update({
         where: { id: ep.id },
         data: {
@@ -42,24 +43,34 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       });
     }
 
-    // Endpoint com falha
+    // ===== FALHA =====
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "?"}`;
+    
+    // Determinar se deve desativar imediatamente
+    // INACTIVE_OFFER = checkout encerrado/inativo → desativar imediatamente
+    // Outros erros (TIMEOUT, NETWORK, etc.) → usar threshold
+    const isInactiveOffer = result.errorCode === "INACTIVE_OFFER";
+    const shouldDeactivateImmediately = isInactiveOffer;
+
     const updated = await prisma.endpoint.update({
       where: { id: ep.id },
       data: {
         lastError: errorMsg,
         lastCheckedAt: new Date(),
         consecutiveFailures: { increment: 1 },
+        // Desativar imediatamente se for oferta inativa
+        isActive: shouldDeactivateImmediately ? false : undefined,
       },
     });
 
-    // Desativar se atingiu threshold
-    const wasDeactivated = updated.consecutiveFailures >= config.FAILURE_THRESHOLD;
-    if (wasDeactivated) {
+    // Se não desativou imediatamente, verificar threshold
+    let wasDeactivated = shouldDeactivateImmediately;
+    if (!wasDeactivated && updated.consecutiveFailures >= config.FAILURE_THRESHOLD) {
       await prisma.endpoint.update({
         where: { id: ep.id },
         data: { isActive: false }
       });
+      wasDeactivated = true;
     }
 
     return res.json({
@@ -70,6 +81,12 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       inactiveReason: result.inactiveReason ?? undefined,
       consecutiveFailures: updated.consecutiveFailures,
       wasDeactivated,
+      // Informar que foi desativado imediatamente por ser oferta inativa
+      reason: shouldDeactivateImmediately 
+        ? "Desativado automaticamente: oferta encerrada" 
+        : wasDeactivated 
+          ? `Desativado após ${config.FAILURE_THRESHOLD} falhas` 
+          : undefined,
     });
   } catch (err) {
     console.error("[POST /endpoints/:id/check]", err);
@@ -168,9 +185,16 @@ router.patch("/:id", async (req: Request, res: Response) => {
       data.url = trimmedUrl;
     }
 
+    // Se estiver alterando a URL, resetar estado
+    const updateData: Record<string, unknown> = { ...data };
+    if (data.url) {
+      updateData.lastError = null;
+      updateData.consecutiveFailures = 0;
+    }
+
     const updated = await prisma.endpoint.update({
       where: { id: req.params.id },
-      data
+      data: updateData
     });
 
     return res.json(updated);

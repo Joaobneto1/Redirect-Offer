@@ -8,7 +8,7 @@ const config = loadConfig();
 /**
  * GET /go/:slug
  * Resolve o link inteligente, escolhe checkout ativo, health check, redireciona ou fallback.
- * 
+ *
  * Parâmetros UTM e outros query params são passados para o checkout final.
  * Exemplo: /go/demo?utm_source=FB&utm_campaign=test
  * → Redireciona para: https://pay.hotmart.com/XXX?utm_source=FB&utm_campaign=test
@@ -33,8 +33,8 @@ export async function handleGo(req: Request, res: Response): Promise<void> {
 
   console.log(`[Go] Resolvendo slug: ${slug}, params:`, Object.keys(queryParams).length > 0 ? queryParams : "(nenhum)");
 
-  const outcome = await resolveSmartLink({ 
-    slug, 
+  const outcome = await resolveSmartLink({
+    slug,
     env: config,
     queryParams: Object.keys(queryParams).length > 0 ? queryParams : undefined,
   });
