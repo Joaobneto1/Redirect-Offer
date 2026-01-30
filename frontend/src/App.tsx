@@ -8,7 +8,7 @@ import { ProductDetail } from "./pages/ProductDetail";
 import { GroupDetail } from "./pages/GroupDetail";
 import { Links } from "./pages/Links";
 import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
+import { SuperAdmin } from "./pages/SuperAdmin";
 import { NotFound } from "./pages/NotFound";
 
 export default function App() {
@@ -16,7 +16,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/superadmin" element={<SuperAdmin />} />
         <Route
           path="/"
           element={

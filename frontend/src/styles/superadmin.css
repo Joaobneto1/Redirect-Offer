@@ -1,0 +1,362 @@
+/* ===== SUPER ADMIN STYLES ===== */
+
+.superadmin-login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  padding: var(--space-4);
+}
+
+.superadmin-login-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  width: 100%;
+  max-width: 400px;
+}
+
+.superadmin-login-card h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  margin: 0 0 var(--space-2);
+  color: var(--text-primary);
+}
+
+.superadmin-login-card p {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-6);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: var(--space-2) 0;
+}
+
+.btn--full {
+  width: 100%;
+}
+
+.superadmin-footer {
+  margin-top: var(--space-5);
+  text-align: center;
+}
+
+.superadmin-link {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.superadmin-link:hover {
+  color: var(--primary);
+}
+
+/* ===== SUPER ADMIN CONTAINER ===== */
+
+.superadmin-container {
+  min-height: 100vh;
+  background: var(--bg-base);
+  padding: var(--space-6);
+}
+
+.superadmin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.superadmin-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.superadmin-header-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ===== USERS LIST ===== */
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 800px;
+}
+
+.user-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+}
+
+.user-card-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.user-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.user-email {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.status-badge,
+.role-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.status-badge.inactive {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.role-badge.superadmin {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.role-badge.user {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+/* Select */
+.form-select {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.user-name {
+  margin: var(--space-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.user-password-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+.password-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.password-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  min-width: 80px;
+}
+
+.password-toggle-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.password-toggle-btn:hover {
+  color: var(--primary);
+}
+
+.user-date {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.user-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.btn--warning {
+  color: #f59e0b !important;
+}
+
+.btn--success {
+  color: #22c55e !important;
+}
+
+.btn--danger {
+  color: var(--danger) !important;
+}
+
+/* ===== MODAL ===== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal-content h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  margin: 0 0 var(--space-5);
+  color: var(--text-primary);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+/* ===== EMPTY STATE ===== */
+
+.empty-state-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10);
+  text-align: center;
+  max-width: 400px;
+}
+
+.empty-state-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0 0 var(--space-2);
+  color: var(--text-primary);
+}
+
+.empty-state-card p {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-5);
+}
+
+.loading-text {
+  color: var(--text-muted);
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 767px) {
+  .superadmin-container {
+    padding: var(--space-4);
+  }
+
+  .superadmin-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .user-card-main {
+    flex-direction: column;
+  }
+
+  .user-card-actions {
+    width: 100%;
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+  }
+
+  .user-password-row {
+    width: 100%;
+  }
+}

@@ -2,14 +2,33 @@ import { Router, type Request, type Response } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { loadConfig } from "../../config.js";
 import { checkCheckoutHealth } from "../../services/health-check.js";
+import type { AuthUser } from "../../middleware/auth.js";
 
 const router = Router();
 const config = loadConfig();
 
+// Helper para pegar userId do request
+function getUserId(req: Request): string {
+  return (req as Request & { user: AuthUser }).user.id;
+}
+
+// Verificar se endpoint pertence ao usuário (via campanha)
+async function verifyEndpointOwnership(endpointId: string, userId: string) {
+  const endpoint = await prisma.endpoint.findUnique({
+    where: { id: endpointId },
+    include: { campaign: { select: { userId: true } } },
+  });
+  if (!endpoint) return null;
+  if (endpoint.campaign.userId !== userId) return null;
+  return endpoint;
+}
+
 // Manual check for an endpoint
 router.post("/:id/check", async (req: Request, res: Response) => {
   try {
-    const ep = await prisma.endpoint.findUnique({ where: { id: req.params.id } });
+    const userId = getUserId(req);
+    const ep = await verifyEndpointOwnership(req.params.id, userId);
+
     if (!ep) {
       return res.status(404).json({
         ok: false,
@@ -47,8 +66,6 @@ router.post("/:id/check", async (req: Request, res: Response) => {
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "?"}`;
 
     // Determinar se deve desativar imediatamente
-    // INACTIVE_OFFER = checkout encerrado/inativo → desativar imediatamente
-    // Outros erros (TIMEOUT, NETWORK, etc.) → usar threshold
     const isInactiveOffer = result.errorCode === "INACTIVE_OFFER";
     const shouldDeactivateImmediately = isInactiveOffer;
 
@@ -58,12 +75,10 @@ router.post("/:id/check", async (req: Request, res: Response) => {
         lastError: errorMsg,
         lastCheckedAt: new Date(),
         consecutiveFailures: { increment: 1 },
-        // Desativar imediatamente se for oferta inativa
         isActive: shouldDeactivateImmediately ? false : undefined,
       },
     });
 
-    // Se não desativou imediatamente, verificar threshold
     let wasDeactivated = shouldDeactivateImmediately;
     if (!wasDeactivated && updated.consecutiveFailures >= config.FAILURE_THRESHOLD) {
       await prisma.endpoint.update({
@@ -81,7 +96,6 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       inactiveReason: result.inactiveReason ?? undefined,
       consecutiveFailures: updated.consecutiveFailures,
       wasDeactivated,
-      // Informar que foi desativado imediatamente por ser oferta inativa
       reason: shouldDeactivateImmediately
         ? "Desativado automaticamente: oferta encerrada"
         : wasDeactivated
@@ -101,6 +115,7 @@ router.post("/:id/check", async (req: Request, res: Response) => {
 // Create endpoint
 router.post("/", async (req: Request, res: Response) => {
   try {
+    const userId = getUserId(req);
     const { campaignId, url, priority = 0 } = req.body as {
       campaignId: string;
       url: string;
@@ -129,8 +144,9 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId }
+    // Verificar se a campanha pertence ao usuário
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, userId }
     });
     if (!campaign) {
       return res.status(404).json({
@@ -159,6 +175,12 @@ router.post("/", async (req: Request, res: Response) => {
 // Update endpoint (URL, priority, isActive)
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
+    const userId = getUserId(req);
+    const existing = await verifyEndpointOwnership(req.params.id, userId);
+    if (!existing) {
+      return res.status(404).json({ error: "Endpoint não encontrado" });
+    }
+
     const data = req.body as {
       url?: string;
       priority?: number;
@@ -209,6 +231,12 @@ router.patch("/:id", async (req: Request, res: Response) => {
 // Delete endpoint
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
+    const userId = getUserId(req);
+    const existing = await verifyEndpointOwnership(req.params.id, userId);
+    if (!existing) {
+      return res.status(404).json({ error: "Endpoint não encontrado" });
+    }
+
     await prisma.endpoint.delete({ where: { id: req.params.id } });
     return res.status(204).send();
   } catch (err) {
