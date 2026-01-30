@@ -23,6 +23,57 @@ const updateSchema = z
   })
   .partial();
 
+// Gerar sugestões de slugs disponíveis
+async function generateSlugSuggestions(baseSlug: string): Promise<string[]> {
+  const suggestions: string[] = [];
+  const candidates = [
+    `${baseSlug}-2`,
+    `${baseSlug}-novo`,
+    `meu-${baseSlug}`,
+    `${baseSlug}-${Date.now().toString().slice(-4)}`,
+    `${baseSlug}-pro`,
+  ];
+
+  for (const candidate of candidates) {
+    const exists = await prisma.campaignLink.findUnique({
+      where: { slug: candidate.toLowerCase() },
+    });
+    if (!exists) {
+      suggestions.push(candidate.toLowerCase());
+    }
+    if (suggestions.length >= 3) break;
+  }
+
+  return suggestions;
+}
+
+// Verificar disponibilidade de slug
+router.get("/check-slug/:slug", async (req: Request, res: Response) => {
+  const slug = req.params.slug.toLowerCase().trim();
+
+  if (!slugRegex.test(slug)) {
+    return res.status(400).json({
+      available: false,
+      error: "Slug inválido. Use apenas letras, números, _ e -",
+    });
+  }
+
+  const existing = await prisma.campaignLink.findUnique({
+    where: { slug },
+  });
+
+  if (existing) {
+    const suggestions = await generateSlugSuggestions(slug);
+    return res.json({
+      available: false,
+      error: "Este slug já está em uso",
+      suggestions,
+    });
+  }
+
+  return res.json({ available: true });
+});
+
 // Listar links do usuário logado
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
@@ -66,6 +117,21 @@ router.post("/", async (req: Request, res: Response) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
+  const slug = parsed.data.slug.toLowerCase().trim();
+
+  // Verificar se slug já existe
+  const existingSlug = await prisma.campaignLink.findUnique({
+    where: { slug },
+  });
+
+  if (existingSlug) {
+    const suggestions = await generateSlugSuggestions(slug);
+    return res.status(409).json({
+      error: "Este slug já está em uso",
+      suggestions,
+    });
+  }
+
   // Verificar se a campanha pertence ao usuário
   const campaign = await prisma.campaign.findFirst({
     where: { id: parsed.data.campaignId, userId },
@@ -75,7 +141,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   const data = {
-    slug: parsed.data.slug,
+    slug,
     campaignId: parsed.data.campaignId,
     userId,
     fallbackUrl: parsed.data.fallbackUrl ?? null,
@@ -98,8 +164,26 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+
+  // Se está alterando o slug, verificar se já existe
+  if (parsed.data.slug) {
+    const newSlug = parsed.data.slug.toLowerCase().trim();
+    if (newSlug !== existing.slug) {
+      const existingSlug = await prisma.campaignLink.findUnique({
+        where: { slug: newSlug },
+      });
+      if (existingSlug) {
+        const suggestions = await generateSlugSuggestions(newSlug);
+        return res.status(409).json({
+          error: "Este slug já está em uso",
+          suggestions,
+        });
+      }
+    }
+  }
+
   const data = {
-    ...(parsed.data.slug ? { slug: parsed.data.slug } : {}),
+    ...(parsed.data.slug ? { slug: parsed.data.slug.toLowerCase().trim() } : {}),
     ...(parsed.data.fallbackUrl !== undefined ? { fallbackUrl: parsed.data.fallbackUrl } : {}),
   };
   const link = await prisma.campaignLink.update({

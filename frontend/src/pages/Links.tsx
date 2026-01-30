@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { api } from "../api/client";
 import { PageHeader } from "../components/PageHeader";
@@ -43,6 +43,11 @@ export function Links() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Validação de slug
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [slugSuggestions, setSlugSuggestions] = useState<string[]>([]);
+  const [checkingSlug, setCheckingSlug] = useState(false);
+
   const fetchData = () => {
     Promise.all([api.smartLinks.list(), api.campaigns.list()])
       .then(([l, c]) => {
@@ -62,12 +67,51 @@ export function Links() {
       setSlug(editing.slug);
       setCampaignId(editing.campaignId);
       setFallbackUrl(editing.fallbackUrl ?? "");
+      setSlugAvailable(null);
+      setSlugSuggestions([]);
     } else if (!modal) {
       setSlug("");
       setCampaignId(campaigns[0]?.id ?? "");
       setFallbackUrl("");
+      setSlugAvailable(null);
+      setSlugSuggestions([]);
     }
   }, [editing, modal, campaigns]);
+
+  // Verificar disponibilidade do slug com debounce
+  const checkSlugAvailability = useCallback(async (slugValue: string) => {
+    const normalizedSlug = slugValue.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!normalizedSlug || normalizedSlug.length < 2) {
+      setSlugAvailable(null);
+      setSlugSuggestions([]);
+      return;
+    }
+
+    setCheckingSlug(true);
+    try {
+      const result = await api.smartLinks.checkSlug(normalizedSlug);
+      setSlugAvailable(result.available);
+      setSlugSuggestions(result.suggestions ?? []);
+    } catch {
+      setSlugAvailable(null);
+      setSlugSuggestions([]);
+    } finally {
+      setCheckingSlug(false);
+    }
+  }, []);
+
+  // Debounce para verificação de slug
+  useEffect(() => {
+    if (editing) return; // Não verificar ao editar
+
+    const timer = setTimeout(() => {
+      if (slug.trim()) {
+        checkSlugAvailability(slug);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [slug, editing, checkSlugAvailability]);
 
   const openCreate = () => {
     setEditing(null);
@@ -75,6 +119,8 @@ export function Links() {
     setCampaignId(campaigns[0]?.id ?? "");
     setFallbackUrl("");
     setError(null);
+    setSlugAvailable(null);
+    setSlugSuggestions([]);
     setModal(true);
   };
 
@@ -88,6 +134,14 @@ export function Links() {
     setModal(false);
     setEditing(null);
     setError(null);
+    setSlugAvailable(null);
+    setSlugSuggestions([]);
+  };
+
+  const useSuggestion = (suggestion: string) => {
+    setSlug(suggestion);
+    setSlugAvailable(true);
+    setSlugSuggestions([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,8 +164,16 @@ export function Links() {
       }
       closeModal();
       fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar");
+    } catch (err: any) {
+      // Tratar erro de slug duplicado
+      if (err?.message?.includes("slug já está em uso")) {
+        setSlugAvailable(false);
+        setError(err.message);
+        // Buscar sugestões atualizadas
+        checkSlugAvailability(slug);
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao salvar");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +229,7 @@ export function Links() {
               type="submit"
               form="form-link"
               className="btn btn--primary"
-              disabled={submitting || !slug.trim() || (!editing && !campaignId)}
+              disabled={submitting || !slug.trim() || (!editing && !campaignId) || (!editing && slugAvailable === false)}
             >
               {submitting ? "Salvando…" : editing ? "Salvar" : "Criar"}
             </button>
@@ -177,18 +239,48 @@ export function Links() {
         <form id="form-link" onSubmit={handleSubmit}>
           <div className="input-group">
             <label htmlFor="link-slug">Slug</label>
-            <input
-              id="link-slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="black-friday"
-              autoFocus
-              disabled={!!editing}
-            />
+            <div className="slug-input-wrapper">
+              <input
+                id="link-slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="black-friday"
+                autoFocus
+                disabled={!!editing}
+                className={!editing && slugAvailable !== null ? (slugAvailable ? "input--valid" : "input--invalid") : ""}
+              />
+              {!editing && checkingSlug && (
+                <span className="slug-status checking">Verificando...</span>
+              )}
+              {!editing && !checkingSlug && slugAvailable === true && (
+                <span className="slug-status available">✓ Disponível</span>
+              )}
+              {!editing && !checkingSlug && slugAvailable === false && (
+                <span className="slug-status unavailable">✗ Em uso</span>
+              )}
+            </div>
             {editing && (
               <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
                 Slug não pode ser alterado.
               </p>
+            )}
+            {/* Sugestões de slugs */}
+            {!editing && slugAvailable === false && slugSuggestions.length > 0 && (
+              <div className="slug-suggestions">
+                <p className="slug-suggestions-label">Sugestões disponíveis:</p>
+                <div className="slug-suggestions-list">
+                  {slugSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className="btn btn--ghost slug-suggestion-btn"
+                      onClick={() => useSuggestion(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
           {!editing && (

@@ -69,33 +69,47 @@ export function Overview() {
         animate="show"
         className="steps-guide"
       >
-        <h3>Passo a passo</h3>
+        <h3>Como funciona</h3>
         <ol className="steps-list">
           <li>
             <span className="step-num">1</span>
             <span className="step-text">
-              <strong>Campanha</strong> — Crie uma campanha em Campanhas. Ex.: "Black Friday".
+              <strong>Crie uma Campanha</strong><br />
+              <span className="step-desc">Vá em "Campanhas" no menu e clique em "Nova campanha". Dê um nome que identifique seu produto (ex: "Curso de Tráfego", "E-book Vendas").</span>
             </span>
           </li>
           <li>
             <span className="step-num">2</span>
             <span className="step-text">
-              <strong>Endpoints</strong> — Dentro da campanha, adicione endpoints (URLs de checkout: Hotmart, Eduzz, etc.). Configure prioridade se necessário.
+              <strong>Adicione seus Checkouts</strong><br />
+              <span className="step-desc">Dentro da campanha, clique em "Novo endpoint" e cole a URL do seu checkout Hotmart. Você pode adicionar vários checkouts de backup - se um cair, o sistema usa o próximo automaticamente.</span>
             </span>
           </li>
           <li>
             <span className="step-num">3</span>
             <span className="step-text">
-              Use <strong>Verificar</strong> para testar cada endpoint; o sistema faz validação profunda (URL final e HTML) para detectar ofertas inativas.
+              <strong>Teste os Checkouts</strong><br />
+              <span className="step-desc">Clique em "Verificar" em cada endpoint. O sistema analisa se o checkout está funcionando. Se aparecer "Inativo", o checkout está com problema e será ignorado.</span>
             </span>
           </li>
           <li>
             <span className="step-num">4</span>
             <span className="step-text">
-              <strong>Link inteligente</strong> — Crie um slug (ex.: demo). O link /go/demo tentará os endpoints configurados na campanha (ordem por prioridade/rotação). Se todos falharem, mostramos uma página de fallback.
+              <strong>Crie o Link Inteligente</strong><br />
+              <span className="step-desc">Vá em "Links inteligentes" e crie um slug único (ex: "curso-trafego"). Esse slug não pode ser igual ao de outro usuário.</span>
+            </span>
+          </li>
+          <li>
+            <span className="step-num">5</span>
+            <span className="step-text">
+              <strong>Use nas suas Campanhas de Ads</strong><br />
+              <span className="step-desc">Copie o link gerado (ex: seudominio.com/go/curso-trafego) e use nos seus anúncios. Os parâmetros UTM são preservados automaticamente.</span>
             </span>
           </li>
         </ol>
+        <div className="steps-tip">
+          <strong>Dica:</strong> Use as setas ▲▼ para ordenar seus checkouts. O primeiro da lista é sempre o principal, os demais são backups.
+        </div>
       </motion.section>
 
       {loading ? (

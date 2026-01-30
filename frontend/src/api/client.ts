@@ -271,6 +271,12 @@ export const api = {
           endpoints: Array<{ id: string; url: string; isActive: boolean }>;
         };
       }>(`${BASE}/api/smart-links/${id}`),
+    checkSlug: (slug: string) =>
+      request<{
+        available: boolean;
+        error?: string;
+        suggestions?: string[];
+      }>(`${BASE}/api/smart-links/check-slug/${encodeURIComponent(slug)}`),
     create: (body: {
       slug: string;
       campaignId: string;
