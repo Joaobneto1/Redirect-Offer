@@ -65,12 +65,12 @@ export function Products() {
   const handleDelete = async (campaign: Campaign, e: React.MouseEvent) => {
     e.preventDefault(); // Não navegar para a campanha
     e.stopPropagation();
-    
+
     const hasContent = campaign._count.endpoints > 0 || campaign._count.links > 0;
     const confirmMsg = hasContent
       ? `Excluir "${campaign.name}"?\n\nIsso também excluirá:\n- ${campaign._count.endpoints} endpoint(s)\n- ${campaign._count.links} link(s)`
       : `Excluir "${campaign.name}"?`;
-    
+
     if (!confirm(confirmMsg)) return;
 
     try {
@@ -169,8 +169,8 @@ export function Products() {
                 whileHover={{ y: -2 }}
                 transition={{ duration: 0.2 }}
               >
-                <Link 
-                  to={`/campaigns/${p.id}`} 
+                <Link
+                  to={`/campaigns/${p.id}`}
                   className="campaign-card-link"
                 >
                   <div className="campaign-card-info">
