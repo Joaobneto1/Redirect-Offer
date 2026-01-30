@@ -193,6 +193,28 @@ select {
   color: var(--text-primary);
 }
 
+.step-desc {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+  line-height: 1.5;
+}
+
+.steps-tip {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.steps-tip strong {
+  color: #f59e0b;
+}
+
 /* ===== OVERVIEW CARDS GRID ===== */
 .overview-cards {
   display: grid;
