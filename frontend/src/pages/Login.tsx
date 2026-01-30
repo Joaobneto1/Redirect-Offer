@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Login() {
@@ -67,7 +67,10 @@ export function Login() {
           </button>
         </form>
         <p className="auth-footer">
-          Não tem conta? <Link to="/register">Cadastre-se</Link>
+          Solicite seu acesso ao administrador.
+        </p>
+        <p className="auth-footer">
+          <a href="/superadmin">É admin?</a>
         </p>
       </div>
     </div>

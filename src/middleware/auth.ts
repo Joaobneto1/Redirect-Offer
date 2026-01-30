@@ -28,13 +28,21 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, isActive: true },
   });
   if (!user) {
     res.status(401).json({ error: "Usuário não encontrado" });
     return;
   }
+  if (!user.isActive) {
+    res.status(403).json({ error: "Conta desativada. Contate o administrador." });
+    return;
+  }
 
-  (req as Request & { user: AuthUser }).user = user;
+  (req as Request & { user: AuthUser }).user = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+  };
   next();
 }
