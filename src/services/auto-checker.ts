@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import { checkCheckoutHealth } from "./health-check.js";
 import { loadConfig } from "../config.js";
+import { notifyEndpointDown, notifyEndpointRecovered } from "./telegram-notifier.js";
 
 const config = loadConfig();
 
@@ -30,6 +31,9 @@ export async function runAutoChecksOnce() {
         });
 
         if (res.ok) {
+          // Se estava inativo e agora voltou
+          const wasInactive = !ep.isActive || ep.consecutiveFailures > 0;
+          
           await prisma.endpoint.update({
             where: { id: ep.id },
             data: {
@@ -37,8 +41,14 @@ export async function runAutoChecksOnce() {
               lastCheckedAt: new Date(),
               consecutiveFailures: 0,
               lastError: null,
+              isActive: true,
             },
           });
+
+          // Notificar recuperação
+          if (wasInactive) {
+            await notifyEndpointRecovered(camp.name, ep.url);
+          }
         } else {
           const reason = res.inactiveReason ?? res.error ?? `HTTP ${res.status ?? "?"}`;
           const updated = await prisma.endpoint.update({
@@ -54,6 +64,9 @@ export async function runAutoChecksOnce() {
               where: { id: ep.id },
               data: { isActive: false },
             });
+
+            // Notificar que o endpoint foi desativado
+            await notifyEndpointDown(camp.name, ep.url, reason, updated.consecutiveFailures);
           }
         }
       } catch (e) {

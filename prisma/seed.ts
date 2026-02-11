@@ -1,63 +1,54 @@
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+// Carregar .env do diretório raiz do projeto (não da pasta prisma)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+const url = process.env.DATABASE_URL;
+if (!url || !url.includes("@")) {
+  console.error("ERRO: DATABASE_URL não encontrada ou inválida no .env");
+  console.error("Verifique se o arquivo .env na raiz do projeto contém:");
+  console.error('  DATABASE_URL="postgresql://usuario:senha@host:porta/banco"');
+  process.exit(1);
+}
+
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+const SUPERADMIN_PASSWORD = "Senha123admin"; // Mesma senha do INITIAL_SUPERADMINS em superadmin.ts
+
+const SUPERADMINS = [
+  { email: "muriloalbuquerquemartins@gmail.com", name: "Murilo" },
+  { email: "joaobneto03@outlook.com", name: "João" },
+];
+
 async function main() {
-  // Seed a sample campaign with two endpoints and a campaign link (slug)
-  const campaign = await prisma.campaign.upsert({
-    where: { id: "seed-campaign-1" },
-    create: {
-      id: "seed-campaign-1",
-      name: "Campanha Demo",
-    },
-    update: { name: "Campanha Demo" },
-  });
+  const passwordHash = await bcrypt.hash(SUPERADMIN_PASSWORD, 10);
 
-  const endpoint1 = await prisma.endpoint.upsert({
-    where: { id: "seed-endpoint-1" },
-    create: {
-      id: "seed-endpoint-1",
-      campaignId: campaign.id,
-      url: "https://httpbin.org/status/200",
-      priority: 0,
-    },
-    update: {
-      url: "https://httpbin.org/status/200",
-      priority: 0,
-    },
-  });
+  for (const { email, name } of SUPERADMINS) {
+    const user = await prisma.user.upsert({
+      where: { email: email.toLowerCase() },
+      create: {
+        email: email.toLowerCase(),
+        passwordHash,
+        name,
+        role: "SUPERADMIN",
+        isActive: true,
+      } as Parameters<typeof prisma.user.upsert>[0]["create"],
+      update: {
+        role: "SUPERADMIN",
+        isActive: true,
+        passwordHash,
+      } as Parameters<typeof prisma.user.upsert>[0]["update"],
+    });
+    console.log(`  Superadmin: ${user.email}`);
+  }
 
-  const endpoint2 = await prisma.endpoint.upsert({
-    where: { id: "seed-endpoint-2" },
-    create: {
-      id: "seed-endpoint-2",
-      campaignId: campaign.id,
-      url: "https://httpbin.org/redirect-to?url=https://example.com&status_code=302",
-      priority: 1,
-    },
-    update: {
-      url: "https://httpbin.org/redirect-to?url=https://example.com&status_code=302",
-      priority: 1,
-    },
-  });
-
-  const link = await prisma.campaignLink.upsert({
-    where: { slug: "demo" },
-    create: {
-      slug: "demo",
-      campaignId: campaign.id,
-      fallbackUrl: "https://example.com",
-    },
-    update: {
-      fallbackUrl: "https://example.com",
-    },
-  });
-
-  console.log("Seed OK:");
-  console.log("  Campaign:", campaign.name);
-  console.log("  Endpoints:", endpoint1.id, endpoint2.id);
-  console.log("  Campaign link: /go/demo");
-  console.log("  Fallback:", link.fallbackUrl);
+  console.log("Seed OK: contas superadmin criadas");
 }
 
 main()
