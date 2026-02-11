@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { loadConfig } from "../../config.js";
 import { checkCheckoutHealth } from "../../services/health-check.js";
+import { notifyManualCheckFailed, notifyEndpointRecovered } from "../../services/telegram-notifier.js";
 import type { AuthUser } from "../../middleware/auth.js";
 
 const router = Router();
@@ -43,8 +44,17 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       deep: true,
     });
 
+    // Buscar nome da campanha para as notificações
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: ep.campaignId },
+      select: { name: true },
+    });
+    const campaignName = campaign?.name ?? "Campanha desconhecida";
+
     if (result.ok) {
-      // Sucesso - ativar e limpar erros
+      // Se estava com erro/inativo, notificar recuperação
+      const wasInactive = !ep.isActive || ep.consecutiveFailures > 0;
+
       await prisma.endpoint.update({
         where: { id: ep.id },
         data: {
@@ -54,6 +64,10 @@ router.post("/:id/check", async (req: Request, res: Response) => {
           isActive: true,
         },
       });
+
+      if (wasInactive) {
+        notifyEndpointRecovered(campaignName, ep.url).catch(console.error);
+      }
 
       return res.json({
         ok: true,
@@ -87,6 +101,9 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       });
       wasDeactivated = true;
     }
+
+    // Notificar via Telegram que o check manual falhou
+    notifyManualCheckFailed(campaignName, ep.url, errorMsg, wasDeactivated).catch(console.error);
 
     return res.json({
       ok: false,

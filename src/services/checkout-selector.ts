@@ -1,6 +1,7 @@
 import type { Endpoint } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { checkCheckoutHealth } from "./health-check.js";
+import { notifyFirstFailure, notifyEndpointDeactivated, notifyAllEndpointsDown } from "./telegram-notifier.js";
 import type { Env } from "../config.js";
 
 export type RedirectOutcome =
@@ -73,13 +74,15 @@ function appendQueryParams(
 }
 
 /**
- * Marca endpoint como falha e atualiza estado.
- * Se consecutiveFailures >= threshold, desativa.
+ * Marca endpoint como falha, atualiza estado e notifica via Telegram.
+ * Se consecutiveFailures >= threshold, desativa e notifica desativação.
  */
 async function recordFailure(
   endpointId: string,
   error: string,
-  threshold: number
+  threshold: number,
+  campaignName: string,
+  context?: { slug?: string; totalEndpoints?: number; activeEndpoints?: number }
 ): Promise<void> {
   const updated = await prisma.endpoint.update({
     where: { id: endpointId },
@@ -90,12 +93,29 @@ async function recordFailure(
     },
   });
 
+  // ALERTA IMEDIATO NA PRIMEIRA FALHA (e em todas as seguintes)
+  notifyFirstFailure(
+    campaignName,
+    updated.url,
+    error,
+    updated.consecutiveFailures,
+    context
+  ).catch((e) => console.error("[Telegram] Erro ao notificar falha:", e));
+
   if (updated.consecutiveFailures >= threshold) {
     await prisma.endpoint.update({
       where: { id: endpointId },
       data: { isActive: false },
     });
     console.log(`[Selector] Endpoint ${endpointId} desativado após ${updated.consecutiveFailures} falhas`);
+
+    // Notificar desativação
+    notifyEndpointDeactivated(
+      campaignName,
+      updated.url,
+      error,
+      updated.consecutiveFailures
+    ).catch((e) => console.error("[Telegram] Erro ao notificar desativação:", e));
   }
 }
 
@@ -120,7 +140,7 @@ async function recordSuccess(endpointId: string): Promise<void> {
  * 1. Busca endpoints ativos ordenados por prioridade (menor = primeiro)
  * 2. Tenta cada um com health check
  * 3. Retorna primeiro que funcionar (com query params anexados)
- * 4. Se todos falharem, retorna erro
+ * 4. Se todos falharem, NOTIFICA NO TELEGRAM e retorna erro
  */
 export async function resolveSmartLink(
   input: ResolveSmartLinkInput
@@ -148,10 +168,14 @@ export async function resolveSmartLink(
   }
 
   const { campaign } = campaignLink;
-  const ordered = sortEndpoints(campaign.endpoints);
+  const allEndpoints = campaign.endpoints;
+  const ordered = sortEndpoints(allEndpoints);
 
   if (ordered.length === 0) {
-    // Fallback se configurado
+    // Nenhum endpoint ativo — ALERTA CRÍTICO
+    notifyAllEndpointsDown(campaign.name, slug, allEndpoints.length)
+      .catch((e) => console.error("[Telegram] Erro ao notificar todos fora:", e));
+
     if (campaignLink.fallbackUrl) {
       return { type: "fallback", url: appendQueryParams(campaignLink.fallbackUrl, queryParams) };
     }
@@ -181,13 +205,23 @@ export async function resolveSmartLink(
       return { type: "redirect", url: finalUrl, endpointId: endpoint.id };
     }
 
-    // Registrar falha
+    // Registrar falha COM NOTIFICAÇÃO TELEGRAM
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "unknown"}`;
     console.log(`[Selector] Endpoint ${endpoint.id} falhou: ${errorMsg}`);
-    await recordFailure(endpoint.id, errorMsg, threshold);
+
+    await recordFailure(endpoint.id, errorMsg, threshold, campaign.name, {
+      slug,
+      totalEndpoints: allEndpoints.length,
+      activeEndpoints: ordered.length,
+    });
   }
 
-  // Todos falharam - usar fallback se disponível
+  // ═══════════ TODOS FALHARAM ═══════════
+  // ALERTA CRÍTICO: tráfego pago sendo perdido
+  notifyAllEndpointsDown(campaign.name, slug, allEndpoints.length)
+    .catch((e) => console.error("[Telegram] Erro ao notificar todos fora:", e));
+
+  // Usar fallback se disponível
   if (campaignLink.fallbackUrl) {
     return { type: "fallback", url: appendQueryParams(campaignLink.fallbackUrl, queryParams) };
   }
