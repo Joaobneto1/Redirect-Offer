@@ -11,16 +11,15 @@ export interface InactiveDetectionResult {
 
 /**
  * Padrões de URL que indicam checkout INATIVO na Hotmart.
- * - /error?errorMessage= indica erro/checkout inativo
- * - URLs com "unavailable", "closed", etc.
+ * Só consideramos inativo quando a URL é claramente a PÁGINA DE ERRO (path /error).
+ * Não usar "errorMessage=" sozinho: a Hotmart pode usar em URLs normais e gera falso positivo.
  */
 const HOTMART_INACTIVE_URL_PATTERNS: RegExp[] = [
-  // URL de erro da Hotmart (principal indicador)
-  /pay\.hotmart\.com\/error/i,
-  /hotmart\.com\/error\?/i,
-  /errorMessage=/i,
+  // Página de erro da Hotmart (path contém /error)
+  /pay\.hotmart\.com\/error(\?|$)/i,
+  /hotmart\.com\/error(\?|$)/i,
 
-  // Outros padrões de inatividade
+  // Outros padrões explícitos de inatividade
   /hotmart\.com.*(unavailable|closed|expired|encerrad|indisponivel)/i,
   /pay\.hotmart\.com.*(unavailable|closed|expired)/i,
 ];
@@ -141,12 +140,9 @@ export function checkHtmlInactive(html: string): InactiveDetectionResult {
     }
   }
 
-  // 3. Verificar se é página de erro da Hotmart pelo tamanho do HTML
-  // Páginas de erro da Hotmart são bem menores que checkouts normais
-  // Checkout ativo: geralmente > 50KB de HTML
-  // Checkout inativo: geralmente < 10KB de HTML
-  if (detectPlatform(body) === "hotmart" && body.length < 15000) {
-    // Verificar se NÃO tem elementos de checkout (form, input de cartão, etc.)
+  // 3. Heurística: página Hotmart muito pequena e sem form de checkout (só se for MUITO pequena)
+  // Checkout ativo costuma ter > 30KB. Só marcamos inativo se < 10KB e sem form (evita falso positivo em loading)
+  if (detectPlatform(body) === "hotmart" && body.length < 10000) {
     const hasCheckoutForm =
       bodyLower.includes('name="cardnumber"') ||
       bodyLower.includes('name="card_number"') ||

@@ -64,6 +64,11 @@ export async function notifyFirstFailure(
     ? `\n<b>Link:</b> /go/${context.slug ?? "?"}\n<b>Endpoints ativos:</b> ${context.activeEndpoints ?? "?"}/${context.totalEndpoints ?? "?"}`
     : "";
 
+  const isTimeout = /tempo limite|timeout|não respondeu a tempo/i.test(reason);
+  const extraNote = isTimeout
+    ? "\n\nℹ️ Timeout pode ser instabilidade momentânea. O sistema tentará de novo no próximo ciclo."
+    : "";
+
   const message = `⚠️ <b>Checkout com problema</b>
 
 <b>Campanha:</b> ${esc(campaignName)}
@@ -72,7 +77,7 @@ export async function notifyFirstFailure(
 <b>Falhas consecutivas:</b> ${consecutiveFailures}${ctx}
 <b>Horário:</b> ${now()}
 
-O sistema está tentando os próximos checkouts da fila.`;
+O sistema está tentando os próximos checkouts da fila.${extraNote}`;
 
   await sendTelegramNotification(message);
 }
@@ -100,6 +105,40 @@ Este checkout foi removido da rotação e NÃO receberá mais tráfego.`;
   await sendTelegramNotification(message);
 }
 
+// ────────────────────── 2b. TIMEOUT (alerta suave — limitado para não encher o Telegram) ──────────────────────
+/** Máximo 1 alerta de timeout por endpoint a cada 30 minutos */
+const TIMEOUT_ALERT_COOLDOWN_MS = 30 * 60 * 1000;
+const lastTimeoutAlertByEndpoint = new Map<string, number>();
+
+/**
+ * Checkout respondeu com timeout. Não desativa; avisa no máximo 1x a cada 30 min por endpoint.
+ */
+export async function notifyTimeout(
+  campaignName: string,
+  endpointUrl: string,
+  context?: { slug?: string; endpointId?: string }
+): Promise<void> {
+  const endpointId = context?.endpointId;
+  if (endpointId) {
+    const last = lastTimeoutAlertByEndpoint.get(endpointId) ?? 0;
+    if (Date.now() - last < TIMEOUT_ALERT_COOLDOWN_MS) {
+      return; // evita spam: só 1 aviso a cada 30 min por endpoint
+    }
+    lastTimeoutAlertByEndpoint.set(endpointId, Date.now());
+  }
+
+  const ctx = context?.slug ? `\n<b>Link:</b> /go/${context.slug}` : "";
+  const message = `⏱️ <b>Checkout lento (timeout)</b>
+
+<b>Campanha:</b> ${esc(campaignName)}
+<b>URL:</b> <code>${esc(endpointUrl)}</code>
+<b>Horário:</b> ${now()}${ctx}
+
+O servidor demorou para responder. O sistema <b>não desativou</b> o checkout e tentará de novo no próximo ciclo. Se continuar, verifique o link.`;
+
+  await sendTelegramNotification(message);
+}
+
 // ────────────────────── 3. TODOS OS CHECKOUTS CAÍRAM (CRÍTICO) ──────────────────────
 /**
  * Avisa quando TODOS os checkouts de uma campanha estão fora do ar.
@@ -118,6 +157,27 @@ export async function notifyAllEndpointsDown(
 <b>Horário:</b> ${now()}
 
 <b>AÇÃO URGENTE:</b> O tráfego pago está sendo PERDIDO. Ninguém está conseguindo comprar. Verifique os checkouts AGORA ou pause os anúncios.`;
+
+  await sendTelegramNotification(message);
+}
+
+// ────────────────────── 3b. TODOS LENTOS (só timeout — não é “todos caíram”) ──────────────────────
+/**
+ * Todos os checkouts responderam com timeout. Pode ser instabilidade; não alarmar como “todos caíram”.
+ */
+export async function notifyAllTimeoutsOrUnstable(
+  campaignName: string,
+  slug: string,
+  totalEndpoints: number
+): Promise<void> {
+  const message = `⏱️ <b>Checkouts lentos ou instáveis (timeout)</b>
+
+<b>Campanha:</b> ${esc(campaignName)}
+<b>Link:</b> /go/${esc(slug)}
+<b>Total:</b> ${totalEndpoints} endpoint(s) não responderam a tempo.
+<b>Horário:</b> ${now()}
+
+Nenhum foi desativado. O sistema tentará de novo. Se persistir, verifique os links ou a rede.`;
 
   await sendTelegramNotification(message);
 }

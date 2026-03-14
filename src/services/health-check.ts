@@ -189,6 +189,10 @@ async function fetchStatus(
   return { status: res.status };
 }
 
+/** User-Agent tipo browser para o deep check (Hotmart pode tratar bot diferente). */
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 /**
  * Faz GET seguindo redirects e retorna URL final + corpo (para validação de oferta inativa).
  */
@@ -200,7 +204,7 @@ async function fetchFinal(
     method: "GET",
     redirect: "follow",
     signal,
-    headers: { "User-Agent": "RedirectOffer-HealthCheck/1.0" },
+    headers: { "User-Agent": BROWSER_UA },
   });
   const body = await res.text();
   const finalUrl = res.url || url;
@@ -261,7 +265,7 @@ export async function checkCheckoutHealth(
       };
     }
 
-    // 5. Verificação profunda (oferta inativa)
+    // 5. Verificação profunda (oferta inativa) com confirmação para reduzir falso positivo
     if (deep) {
       const c3 = new AbortController();
       const t3 = setTimeout(() => c3.abort(), timeoutMs);
@@ -269,23 +273,40 @@ export async function checkCheckoutHealth(
         const { finalUrl, body } = await fetchFinal(url, c3.signal);
         clearTimeout(t3);
 
-        // Verificar URL final
         const urlCheck = checkUrlInactive(finalUrl);
-        if (urlCheck.inactive) {
-          const platform = detectPlatform(url);
-          const platformName = platform === "hotmart" ? "Hotmart" : platform === "eduzz" ? "Eduzz" : "checkout";
-          return {
-            ok: false,
-            status,
-            error: `Oferta inativa no ${platformName}`,
-            errorCode: "INACTIVE_OFFER",
-            inactiveReason: urlCheck.reason,
-          };
-        }
-
-        // Verificar HTML
         const htmlCheck = checkHtmlInactive(body);
-        if (htmlCheck.inactive) {
+        const firstCheckInactive = urlCheck.inactive || htmlCheck.inactive;
+
+        if (firstCheckInactive) {
+          // Confirmação: segunda checagem após 2s (evita alarme por instabilidade momentânea)
+          await new Promise((r) => setTimeout(r, 2000));
+          const c4 = new AbortController();
+          const t4 = setTimeout(() => c4.abort(), timeoutMs);
+          try {
+            const { finalUrl: finalUrl2, body: body2 } = await fetchFinal(url, c4.signal);
+            clearTimeout(t4);
+            const urlCheck2 = checkUrlInactive(finalUrl2);
+            const htmlCheck2 = checkHtmlInactive(body2);
+            if (!urlCheck2.inactive && !htmlCheck2.inactive) {
+              console.warn(`[HealthCheck] Confirmação OK para ${url} (1ª checagem disse inativo)`);
+              return { ok: true, status };
+            }
+          } catch {
+            clearTimeout(t4);
+            // Se a confirmação falhar (timeout etc.), mantemos o resultado da 1ª checagem
+          }
+
+          if (urlCheck.inactive) {
+            const platform = detectPlatform(url);
+            const platformName = platform === "hotmart" ? "Hotmart" : platform === "eduzz" ? "Eduzz" : "checkout";
+            return {
+              ok: false,
+              status,
+              error: `Oferta inativa no ${platformName}`,
+              errorCode: "INACTIVE_OFFER",
+              inactiveReason: urlCheck.reason,
+            };
+          }
           return {
             ok: false,
             status,
@@ -296,8 +317,6 @@ export async function checkCheckoutHealth(
         }
       } catch (e) {
         clearTimeout(t3);
-        // Deep check falhou (timeout, etc.); consideramos o checkout ok pelo status
-        // para não quebrar o fluxo por causa da validação extra.
         console.warn(`[HealthCheck] Deep check falhou para ${url}:`, e instanceof Error ? e.message : e);
       }
     }

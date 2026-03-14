@@ -1,7 +1,14 @@
 import type { Endpoint } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { checkCheckoutHealth } from "./health-check.js";
-import { notifyFirstFailure, notifyEndpointDeactivated, notifyAllEndpointsDown } from "./telegram-notifier.js";
+import {
+  notifyFirstFailure,
+  notifyEndpointDeactivated,
+  notifyAllEndpointsDown,
+  notifyTimeout,
+  notifyAllTimeoutsOrUnstable,
+} from "./telegram-notifier.js";
+import type { ErrorCode } from "./health-check.js";
 import type { Env } from "../config.js";
 
 export type RedirectOutcome =
@@ -75,15 +82,32 @@ function appendQueryParams(
 
 /**
  * Marca endpoint como falha, atualiza estado e notifica via Telegram.
- * Se consecutiveFailures >= threshold, desativa e notifica desativação.
+ * TIMEOUT não incrementa falhas nem desativa (evita falso positivo por lentidão).
  */
 async function recordFailure(
   endpointId: string,
   error: string,
+  errorCode: ErrorCode | undefined,
   threshold: number,
   campaignName: string,
   context?: { slug?: string; totalEndpoints?: number; activeEndpoints?: number }
 ): Promise<void> {
+  const isTimeout = errorCode === "TIMEOUT";
+
+  if (isTimeout) {
+    await prisma.endpoint.update({
+      where: { id: endpointId },
+      data: { lastError: error, lastCheckedAt: new Date() },
+    });
+    const ep = await prisma.endpoint.findUnique({ where: { id: endpointId } });
+    if (ep) {
+      notifyTimeout(campaignName, ep.url, { slug: context?.slug, endpointId }).catch((e) =>
+        console.error("[Telegram] Erro ao notificar timeout:", e)
+      );
+    }
+    return;
+  }
+
   const updated = await prisma.endpoint.update({
     where: { id: endpointId },
     data: {
@@ -93,7 +117,6 @@ async function recordFailure(
     },
   });
 
-  // ALERTA IMEDIATO NA PRIMEIRA FALHA (e em todas as seguintes)
   notifyFirstFailure(
     campaignName,
     updated.url,
@@ -109,7 +132,6 @@ async function recordFailure(
     });
     console.log(`[Selector] Endpoint ${endpointId} desativado após ${updated.consecutiveFailures} falhas`);
 
-    // Notificar desativação
     notifyEndpointDeactivated(
       campaignName,
       updated.url,
@@ -185,11 +207,13 @@ export async function resolveSmartLink(
   const healthConfig = {
     timeoutMs: env.HEALTH_CHECK_TIMEOUT_MS,
     allowedStatuses: env.HEALTH_CHECK_ALLOWED_STATUSES,
-    deep: true, // Sempre fazer verificação profunda para Hotmart
+    deep: true,
   };
   const threshold = env.FAILURE_THRESHOLD;
 
-  // Tentar cada endpoint na ordem
+  /** Coletar falhas para saber se "todos caíram" foi por timeout ou falha real */
+  const failureCodes: ErrorCode[] = [];
+
   for (const endpoint of ordered) {
     console.log(`[Selector] Verificando endpoint ${endpoint.id}: ${endpoint.url}`);
 
@@ -198,18 +222,18 @@ export async function resolveSmartLink(
     if (result.ok) {
       await recordSuccess(endpoint.id);
 
-      // Anexar query params ao URL do checkout
       const finalUrl = appendQueryParams(endpoint.url, queryParams);
       console.log(`[Selector] Redirecionando para: ${finalUrl}`);
 
       return { type: "redirect", url: finalUrl, endpointId: endpoint.id };
     }
 
-    // Registrar falha COM NOTIFICAÇÃO TELEGRAM
+    if (result.errorCode) failureCodes.push(result.errorCode);
+
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "unknown"}`;
     console.log(`[Selector] Endpoint ${endpoint.id} falhou: ${errorMsg}`);
 
-    await recordFailure(endpoint.id, errorMsg, threshold, campaign.name, {
+    await recordFailure(endpoint.id, errorMsg, result.errorCode, threshold, campaign.name, {
       slug,
       totalEndpoints: allEndpoints.length,
       activeEndpoints: ordered.length,
@@ -217,9 +241,14 @@ export async function resolveSmartLink(
   }
 
   // ═══════════ TODOS FALHARAM ═══════════
-  // ALERTA CRÍTICO: tráfego pago sendo perdido
-  notifyAllEndpointsDown(campaign.name, slug, allEndpoints.length)
-    .catch((e) => console.error("[Telegram] Erro ao notificar todos fora:", e));
+  const hadRealFailure = failureCodes.some((c) => c !== "TIMEOUT");
+  if (hadRealFailure) {
+    notifyAllEndpointsDown(campaign.name, slug, allEndpoints.length)
+      .catch((e) => console.error("[Telegram] Erro ao notificar todos fora:", e));
+  } else {
+    notifyAllTimeoutsOrUnstable(campaign.name, slug, allEndpoints.length)
+      .catch((e) => console.error("[Telegram] Erro ao notificar timeouts:", e));
+  }
 
   // Usar fallback se disponível
   if (campaignLink.fallbackUrl) {
