@@ -1,4 +1,4 @@
-import { checkUrlInactive, checkHtmlInactive, detectPlatform } from "./inactive-detector.js";
+import { checkUrlInactive, checkHtmlInactive, detectPlatform, hasActiveCheckoutSignals } from "./inactive-detector.js";
 
 export interface HealthCheckResult {
   ok: boolean;
@@ -274,8 +274,23 @@ export async function checkCheckoutHealth(
         clearTimeout(t3);
 
         const urlCheck = checkUrlInactive(finalUrl);
+        if (urlCheck.inactive) {
+          const platform = detectPlatform(url);
+          const platformName = platform === "hotmart" ? "Hotmart" : platform === "eduzz" ? "Eduzz" : "checkout";
+          return {
+            ok: false,
+            status,
+            error: `Oferta inativa no ${platformName}`,
+            errorCode: "INACTIVE_OFFER",
+            inactiveReason: urlCheck.reason,
+          };
+        }
+        // URL OK: se tiver sinais claros de checkout ativo, considerar ativo sem depender da heurística
+        if (detectPlatform(url) === "hotmart" && hasActiveCheckoutSignals(body)) {
+          return { ok: true, status };
+        }
         const htmlCheck = checkHtmlInactive(body);
-        const firstCheckInactive = urlCheck.inactive || htmlCheck.inactive;
+        const firstCheckInactive = htmlCheck.inactive;
 
         if (firstCheckInactive) {
           // Confirmação: segunda checagem após 2s (evita alarme por instabilidade momentânea)
@@ -288,25 +303,16 @@ export async function checkCheckoutHealth(
             const urlCheck2 = checkUrlInactive(finalUrl2);
             const htmlCheck2 = checkHtmlInactive(body2);
             if (!urlCheck2.inactive && !htmlCheck2.inactive) {
-              console.warn(`[HealthCheck] Confirmação OK para ${url} (1ª checagem disse inativo)`);
+              console.warn(`[HealthCheck] Confirmação OK para ${url} (1ª disse inativo, 2ª disse ativo)`);
               return { ok: true, status };
             }
-          } catch {
+          } catch (e) {
             clearTimeout(t4);
-            // Se a confirmação falhar (timeout etc.), mantemos o resultado da 1ª checagem
+            // Se a confirmação falhar (timeout/rede), não marcar inativo — dar benefício da dúvida
+            console.warn(`[HealthCheck] Confirmação falhou para ${url}, considerando ativo:`, e instanceof Error ? e.message : e);
+            return { ok: true, status };
           }
 
-          if (urlCheck.inactive) {
-            const platform = detectPlatform(url);
-            const platformName = platform === "hotmart" ? "Hotmart" : platform === "eduzz" ? "Eduzz" : "checkout";
-            return {
-              ok: false,
-              status,
-              error: `Oferta inativa no ${platformName}`,
-              errorCode: "INACTIVE_OFFER",
-              inactiveReason: urlCheck.reason,
-            };
-          }
           return {
             ok: false,
             status,

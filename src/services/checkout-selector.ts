@@ -4,6 +4,7 @@ import { checkCheckoutHealth } from "./health-check.js";
 import {
   notifyFirstFailure,
   notifyEndpointDeactivated,
+  notifyEndpointRecovered,
   notifyAllEndpointsDown,
   notifyTimeout,
   notifyAllTimeoutsOrUnstable,
@@ -97,7 +98,7 @@ async function recordFailure(
   if (isTimeout) {
     await prisma.endpoint.update({
       where: { id: endpointId },
-      data: { lastError: error, lastCheckedAt: new Date() },
+      data: { lastCheckedAt: new Date(), lastError: null },
     });
     const ep = await prisma.endpoint.findUnique({ where: { id: endpointId } });
     if (ep) {
@@ -240,7 +241,21 @@ export async function resolveSmartLink(
     });
   }
 
-  // ═══════════ TODOS FALHARAM ═══════════
+  // ═══════════ TODOS ATIVOS FALHARAM — tentar inativos para reativar se estiverem OK ═══════════
+  const inactiveEndpoints = allEndpoints.filter((e) => !e.isActive);
+  for (const endpoint of inactiveEndpoints) {
+    const result = await checkCheckoutHealth(endpoint.url, healthConfig);
+    if (result.ok) {
+      await recordSuccess(endpoint.id);
+      notifyEndpointRecovered(campaign.name, endpoint.url).catch((e) =>
+        console.error("[Telegram] Erro ao notificar recuperação:", e)
+      );
+      const finalUrl = appendQueryParams(endpoint.url, queryParams);
+      console.log(`[Selector] Endpoint inativo recuperado, redirecionando: ${endpoint.url}`);
+      return { type: "redirect", url: finalUrl, endpointId: endpoint.id };
+    }
+  }
+
   const hadRealFailure = failureCodes.some((c) => c !== "TIMEOUT");
   if (hadRealFailure) {
     notifyAllEndpointsDown(campaign.name, slug, allEndpoints.length)
@@ -250,7 +265,6 @@ export async function resolveSmartLink(
       .catch((e) => console.error("[Telegram] Erro ao notificar timeouts:", e));
   }
 
-  // Usar fallback se disponível
   if (campaignLink.fallbackUrl) {
     return { type: "fallback", url: appendQueryParams(campaignLink.fallbackUrl, queryParams) };
   }

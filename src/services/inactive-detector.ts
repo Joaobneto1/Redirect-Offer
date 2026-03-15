@@ -140,9 +140,9 @@ export function checkHtmlInactive(html: string): InactiveDetectionResult {
     }
   }
 
-  // 3. Heurística: página Hotmart muito pequena e sem form de checkout (só se for MUITO pequena)
-  // Checkout ativo costuma ter > 30KB. Só marcamos inativo se < 10KB e sem form (evita falso positivo em loading)
-  if (detectPlatform(body) === "hotmart" && body.length < 10000) {
+  // 3. Heurística: página muito pequena e sem sinal de checkout ativo (conservadora)
+  // Só marcamos inativo se < 8KB, sem form E sem nenhum sinal positivo (Comprar, CKTID, etc.)
+  if (detectPlatform(body) === "hotmart" && body.length < 8000) {
     const hasCheckoutForm =
       bodyLower.includes('name="cardnumber"') ||
       bodyLower.includes('name="card_number"') ||
@@ -154,7 +154,7 @@ export function checkHtmlInactive(html: string): InactiveDetectionResult {
       bodyLower.includes('seu email') ||
       bodyLower.includes('your email');
 
-    if (!hasCheckoutForm) {
+    if (!hasCheckoutForm && !hasActiveCheckoutSignals(body)) {
       return {
         inactive: true,
         reason: "Página Hotmart sem formulário de checkout",
@@ -164,6 +164,38 @@ export function checkHtmlInactive(html: string): InactiveDetectionResult {
   }
 
   return { inactive: false };
+}
+
+/**
+ * Sinais fortes de que a página é um checkout ATIVO (Hotmart/Eduzz).
+ * Se aparecer algum, não marcar como inativo mesmo em páginas pequenas.
+ */
+const ACTIVE_CHECKOUT_SIGNALS: string[] = [
+  "CKTID-",           // ID de transação Hotmart na página
+  "buy now",
+  "comprar agora",
+  "comprar",
+  "finalizar compra",
+  "checkout",
+  "payment",
+  "pagamento",
+  "cardnumber",
+  "card_number",
+  "payment-method",
+  "secured by",
+  "total of",
+  "total de",
+  "order details",
+  "dados do pedido",
+  "your email",
+  "seu email",
+  "helpheart",       // comum em checkouts
+  "hotmart.com",
+];
+
+export function hasActiveCheckoutSignals(html: string): boolean {
+  const slice = html.slice(0, 100000).toLowerCase();
+  return ACTIVE_CHECKOUT_SIGNALS.some((signal) => slice.includes(signal.toLowerCase()));
 }
 
 /**

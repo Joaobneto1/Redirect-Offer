@@ -11,6 +11,9 @@ import {
 } from "./telegram-notifier.js";
 const config = loadConfig();
 
+/** Intervalo (segundos) para rechecar endpoints inativos — reativação automática mais rápida */
+const REACTIVATION_CHECK_INTERVAL_SEC = 30;
+
 /** Run health check for endpoints that are overdue per their campaign interval */
 export async function runAutoChecksOnce() {
   // load campaigns with autoCheckEnabled = true
@@ -34,7 +37,9 @@ export async function runAutoChecksOnce() {
     for (const ep of camp.endpoints) {
       const last = ep.lastCheckedAt ? new Date(ep.lastCheckedAt) : new Date(0);
       const elapsed = (now.getTime() - last.getTime()) / 1000;
-      if (elapsed < intervalSec) continue;
+      // Endpoints inativos são rechecados com intervalo menor para reativação automática mais rápida
+      const checkInterval = ep.isActive ? intervalSec : Math.min(intervalSec, REACTIVATION_CHECK_INTERVAL_SEC);
+      if (elapsed < checkInterval) continue;
 
       try {
         const res = await checkCheckoutHealth(ep.url, {
@@ -44,9 +49,9 @@ export async function runAutoChecksOnce() {
         });
 
         if (res.ok) {
-          // Se estava inativo e agora voltou
+          // Reativação automática: se estava inativo ou com falhas, volta a ativo e notifica
           const wasInactive = !ep.isActive || ep.consecutiveFailures > 0;
-          
+
           await prisma.endpoint.update({
             where: { id: ep.id },
             data: {
@@ -58,7 +63,6 @@ export async function runAutoChecksOnce() {
             },
           });
 
-          // Notificar recuperação
           if (wasInactive) {
             await notifyEndpointRecovered(camp.name, ep.url);
           }
@@ -66,14 +70,13 @@ export async function runAutoChecksOnce() {
           const reason = res.inactiveReason ?? res.error ?? `HTTP ${res.status ?? "?"}`;
           const isTimeout = res.errorCode === "TIMEOUT";
 
-          // Timeout NÃO conta como falha consecutiva e NÃO desativa (evita falso positivo)
+          // Timeout NÃO conta como falha e NÃO desativa; não grava em lastError para não assustar no dashboard
           if (isTimeout) {
             await prisma.endpoint.update({
               where: { id: ep.id },
               data: {
                 lastCheckedAt: new Date(),
-                lastError: reason,
-                // não incrementa consecutiveFailures
+                lastError: null,
               },
             });
             failedInThisRound++;

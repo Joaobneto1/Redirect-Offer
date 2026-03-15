@@ -78,8 +78,22 @@ router.post("/:id/check", async (req: Request, res: Response) => {
 
     // ===== FALHA =====
     const errorMsg = result.inactiveReason ?? result.error ?? `HTTP ${result.status ?? "?"}`;
+    const isTimeout = result.errorCode === "TIMEOUT";
 
-    // Determinar se deve desativar imediatamente
+    // Timeout não grava como erro nem desativa (evita aviso falso no dashboard)
+    if (isTimeout) {
+      await prisma.endpoint.update({
+        where: { id: ep.id },
+        data: { lastCheckedAt: new Date(), lastError: null },
+      });
+      return res.json({
+        ok: false,
+        error: errorMsg,
+        errorCode: "TIMEOUT",
+        message: "Resposta lenta (timeout). O checkout pode estar OK; tente de novo.",
+      });
+    }
+
     const isInactiveOffer = result.errorCode === "INACTIVE_OFFER";
     const shouldDeactivateImmediately = isInactiveOffer;
 
@@ -102,7 +116,6 @@ router.post("/:id/check", async (req: Request, res: Response) => {
       wasDeactivated = true;
     }
 
-    // Notificar via Telegram que o check manual falhou
     notifyManualCheckFailed(campaignName, ep.url, errorMsg, wasDeactivated).catch(console.error);
 
     return res.json({
