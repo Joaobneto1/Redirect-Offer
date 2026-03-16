@@ -275,6 +275,23 @@ export async function checkCheckoutHealth(
 
         const urlCheck = checkUrlInactive(finalUrl);
         if (urlCheck.inactive) {
+          // Confirmação também para URL: Hotmart pode redirecionar de forma transitória para URL que parece de erro
+          await new Promise((r) => setTimeout(r, 2000));
+          const c4 = new AbortController();
+          const t4 = setTimeout(() => c4.abort(), timeoutMs);
+          try {
+            const { finalUrl: finalUrl2 } = await fetchFinal(url, c4.signal);
+            clearTimeout(t4);
+            const urlCheck2 = checkUrlInactive(finalUrl2);
+            if (!urlCheck2.inactive) {
+              console.warn(`[HealthCheck] Confirmação OK para ${url} (1ª URL disse inativo, 2ª URL OK)`);
+              return { ok: true, status };
+            }
+          } catch (e) {
+            clearTimeout(t4);
+            console.warn(`[HealthCheck] Confirmação URL falhou para ${url}, considerando ativo:`, e instanceof Error ? e.message : e);
+            return { ok: true, status };
+          }
           const platform = detectPlatform(url);
           const platformName = platform === "hotmart" ? "Hotmart" : platform === "eduzz" ? "Eduzz" : "checkout";
           return {
